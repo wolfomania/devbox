@@ -310,7 +310,11 @@ PYEOF
 
 push_source() {
 	say "Shipping the working tree"
-	payload="$(tar --exclude=.git -czf - -C "$ROOT_DIR" . | base64 -w0)"
+	# The whole payload travels inside one SSM command, which has a size
+	# limit, so the box gets the provisioner and tests/module-case.sh and not
+	# the harness that launched it.
+	payload="$(tar --exclude=.git --exclude=tests/vps --exclude=__pycache__ \
+		-czf - -C "$ROOT_DIR" . | base64 -w0)"
 	dim "$(printf '%s' "$payload" | wc -c) bytes of base64"
 
 	remote_sh "push-source" <<REMOTE
