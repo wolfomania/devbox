@@ -7,7 +7,25 @@
 
 # Derived from HOME, which install.sh may retarget when it is run under sudo,
 # so these live in a function that can be called again.
+# HOME is not guaranteed to be set. A command sent over SSM, a cron job and a
+# systemd unit all arrive without one, and every path below hangs off it, so
+# work it out from the passwd database rather than let `set -u` kill the run.
+paths_ensure_home() {
+	[ -n "${HOME:-}" ] && return 0
+
+	HOME="$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)"
+	if [ -z "$HOME" ] && [ "$(id -u)" -eq 0 ]; then
+		HOME=/root
+	fi
+	[ -n "$HOME" ] || {
+		printf 'devbox: HOME is unset and uid %s has no home directory\n' "$(id -u)" >&2
+		exit 1
+	}
+	export HOME
+}
+
 paths_refresh() {
+	paths_ensure_home
 	DVB_ENV_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/devbox"
 	DVB_ENV_FILE="$DVB_ENV_DIR/env.sh"
 	DVB_PREFIX="${XDG_DATA_HOME:-$HOME/.local/share}/devbox"

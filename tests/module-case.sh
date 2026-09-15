@@ -86,6 +86,12 @@ main() {
 		fail "check still reports $TARGET as missing after installing it"
 	[ -n "$version" ] || fail "check printed no version"
 
+	# A command sent over SSM, a cron job and a systemd unit all arrive with
+	# no HOME, and every path devbox writes hangs off it. The module has to
+	# work that out for itself rather than die on an unset variable.
+	env -u HOME "./$script" check > /dev/null 2>&1 ||
+		fail "check fails when HOME is unset"
+
 	printf 'TEST-OK %s\n' "$version"
 }
 
