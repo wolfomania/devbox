@@ -15,6 +15,23 @@ set -u
 DVB_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 export DVB_ROOT
 
+# HOME is not guaranteed. A command sent over SSM, a cron job and a systemd
+# unit all arrive without one, and `set -u` would end the script on the first
+# path it builds. This is the same job lib/paths.sh does in paths_ensure_home,
+# written out again because piped into a shell there are no libraries yet and
+# the download path below already needs a home directory.
+if [ -z "${HOME:-}" ]; then
+	HOME="$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)"
+	if [ -z "$HOME" ] && [ "$(id -u)" -eq 0 ]; then
+		HOME=/root
+	fi
+	[ -n "$HOME" ] || {
+		printf 'devbox: HOME is unset and uid %s has no home directory\n' "$(id -u)" >&2
+		exit 1
+	}
+	export HOME
+fi
+
 # --- bootstrap -------------------------------------------------------------
 #
 # Piped into a shell there is no repository on disk, only this file. Fetch the
