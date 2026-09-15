@@ -1,7 +1,8 @@
 #!/bin/sh
 # Install one module from nothing, and check that it worked.
 #
-#   tests/module-case.sh go
+#   tests/module-case.sh go            a module, by its manifest id
+#   tests/module-case.sh ripgrep       one part of a bundle, by its file name
 #
 # Three questions, in this order:
 #
@@ -37,7 +38,9 @@ fail() {
 # A container and a freshly launched instance both say so in /run or in the
 # environment. Anything else is somebody's actual machine.
 assert_disposable() {
-	[ -n "${DVB_TEST_DISPOSABLE:-}" ] && return 0
+	case "${DVB_TEST_DISPOSABLE:-0}" in
+		1 | y | yes | true) return 0 ;;
+	esac
 	[ -f /.dockerenv ] && return 0
 	fail "refusing to install on a machine that is not disposable; set DVB_TEST_DISPOSABLE=1 if it is"
 }
@@ -46,15 +49,29 @@ manifest() {
 	DVB_MANIFEST="${DVB_MANIFEST:-$ROOT/manifests}" python3 "$ROOT/tui/manifest.py" "$@"
 }
 
+# A manifest id names a module; anything else is looked for among the bundle
+# parts, which have no manifest entry of their own.
+resolve_script() {
+	if found="$(manifest field "$TARGET" script 2>/dev/null)" && [ -n "$found" ]; then
+		printf '%s\n' "$found"
+		return 0
+	fi
+	[ -f "$ROOT/modules/parts/$TARGET.sh" ] || return 1
+	printf 'modules/parts/%s.sh\n' "$TARGET"
+}
+
+# Dependencies, in the order they have to be installed. A part declares none.
+dependencies_of() {
+	manifest order "$TARGET" 2>/dev/null | sed "/^$TARGET\$/d"
+}
+
 main() {
 	assert_disposable
 	cd "$ROOT" || fail "cannot enter $ROOT"
 
-	script="$(manifest field "$TARGET" script)" || fail "no module called $TARGET"
+	script="$(resolve_script)" || fail "no module or bundle part called $TARGET"
 
-	# manifest order puts dependencies first and the module itself last.
-	for dependency in $(manifest order "$TARGET"); do
-		[ "$dependency" = "$TARGET" ] && break
+	for dependency in $(dependencies_of); do
 		"./$(manifest field "$dependency" script)" install > /dev/null 2>&1 ||
 			fail "the dependency $dependency did not install"
 	done

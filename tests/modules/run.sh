@@ -2,8 +2,8 @@
 # Install one module, on its own, in a throwaway container, and check that it
 # worked.
 #
-#   ./tests/modules/run.sh                 every module a container can hold
-#   ./tests/modules/run.sh go node         only these
+#   ./tests/modules/run.sh                 every module and bundle part
+#   ./tests/modules/run.sh go ripgrep      only these
 #   ./tests/modules/run.sh --all           including the slow ones
 #   ./tests/modules/run.sh --list          what would run, and what is skipped
 #   ./tests/modules/run.sh --keep          keep the container of a failing module
@@ -109,6 +109,15 @@ required_modules() { manifest rows | awk -F'\t' '{print $1}' | while read -r id;
 	[ "$(manifest field "$id" required)" = "True" ] && printf '%s\n' "$id"
 done; }
 
+# The parts of a bundle, which have no manifest entry and are named by file.
+list_parts() {
+	for path in "$ROOT"/modules/parts/*.sh; do
+		[ -f "$path" ] || continue
+		name="${path##*/}"
+		printf '%s\n' "${name%.sh}"
+	done
+}
+
 in_list() {
 	for item in $2; do
 		[ "$item" = "$1" ] && return 0
@@ -116,9 +125,9 @@ in_list() {
 	return 1
 }
 
-# Everything worth running, unless the caller named modules explicitly.
+# Everything worth running, unless the caller named targets explicitly.
 default_modules() {
-	manifest ids | while read -r id; do
+	{ list_parts; manifest ids; } | while read -r id; do
 		in_list "$id" "$SKIP_MODULES" && continue
 		[ "$OPT_ALL" -eq 1 ] || ! in_list "$id" "$SLOW_MODULES" || continue
 		printf '%s\n' "$id"
@@ -129,8 +138,11 @@ default_modules() {
 
 test_module() {
 	id="$1"
+	# A bare Ubuntu is the stricter test, so anything that can be installed on
+	# one is: every bundle part is a plain apt package, and the required
+	# modules are what a box gets before anything else.
 	image="$IMAGE_READY"
-	in_list "$id" "$(required_modules)" && image="$IMAGE_BARE"
+	in_list "$id" "$(required_modules) $(list_parts | tr '\n' ' ')" && image="$IMAGE_BARE"
 
 	log_file="$work_dir/$id.log"
 	started="$(date +%s)"
@@ -186,8 +198,8 @@ main() {
 	[ -n "$wanted" ] || wanted="$(default_modules | tr '\n' ' ')"
 
 	if [ "$OPT_LIST" -eq 1 ]; then
-		head_line "Modules"
-		manifest ids | while read -r id; do
+		head_line "Modules and bundle parts"
+		{ list_parts; manifest ids; } | while read -r id; do
 			if in_list "$id" "$SKIP_MODULES"; then
 				printf '  %-14s %sskipped, needs a real machine (tests/vps)%s\n' "$id" "$C_YELLOW" "$C_RESET"
 			elif in_list "$id" "$SLOW_MODULES"; then

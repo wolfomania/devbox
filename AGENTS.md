@@ -55,8 +55,11 @@ Every module runs on its own, which is what the last three tiers do:
 for real, so it refuses to run outside a container unless the box is marked
 `DVB_TEST_DISPOSABLE=1`.
 
-Both module runners read the manifest, so a new module needs no new test. Two
-modules are handled differently:
+Bundle parts are tested the same way and named by file:
+`./tests/modules/run.sh ripgrep`.
+
+Both module runners read the manifest and the parts directory, so a new module
+or a new part needs no new test. Two modules are handled differently:
 
 - `docker` needs a real machine. `./tests/vps/run.sh --modules docker` covers it.
 - `latex` is 2.4 GB and is skipped unless you ask: `./tests/modules/run.sh --all`.
