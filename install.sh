@@ -518,7 +518,13 @@ main() {
 	report_capabilities
 
 	tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/devbox.XXXXXX")"
-	trap 'rm -rf "$tmp_dir"' EXIT INT TERM
+	# A shell runs an INT or TERM trap and then carries on with the next
+	# command, so cleaning up is not enough: without an explicit exit, Ctrl-C
+	# deleted the run directory and the install loop kept going against a
+	# selection file that was no longer there.
+	trap 'rm -rf "$tmp_dir"' EXIT
+	trap 'rm -rf "$tmp_dir"; exit 130' INT
+	trap 'rm -rf "$tmp_dir"; exit 143' TERM
 	# Modules are separate processes; this is where they leave the per-run
 	# notes they need to share, such as "the apt index is already refreshed".
 	DVB_RUN_DIR="$tmp_dir"

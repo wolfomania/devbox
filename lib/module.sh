@@ -55,7 +55,10 @@ load_env
 if [ -z "${DVB_RUN_DIR:-}" ]; then
 	DVB_RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/devbox-run.XXXXXX")"
 	export DVB_RUN_DIR
-	trap 'rm -rf "$DVB_RUN_DIR"' EXIT INT TERM
+	# Interrupted, the trap must leave as well as clean up; see install.sh.
+	trap 'rm -rf "$DVB_RUN_DIR"' EXIT
+	trap 'rm -rf "$DVB_RUN_DIR"; exit 130' INT
+	trap 'rm -rf "$DVB_RUN_DIR"; exit 143' TERM
 fi
 
 # Path of this module relative to the repository root, which is how the
