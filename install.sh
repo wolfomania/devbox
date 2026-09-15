@@ -172,8 +172,14 @@ parse_args() {
 # per-user tool would land there, invisible to the person who asked for it.
 # Point HOME at the invoking account instead. env_hand_back returns ownership
 # once the install is done.
+#
+# Only root may do this. SUDO_USER is inherited like any other variable, and a
+# chain such as `sudo -iu ubuntu` leaves the previous account's name in it:
+# ubuntu would then install into /home/ssm-user, which it cannot write, and
+# every module would fail on Permission denied.
 adopt_invoking_user() {
 	DVB_USER="$(id -un)"
+	[ "$(id -u)" -eq 0 ] || return 0
 	[ -n "${SUDO_USER:-}" ] || return 0
 	[ "$SUDO_USER" != "root" ] || return 0
 
