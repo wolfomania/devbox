@@ -14,6 +14,8 @@ UNICODE = {
     "rule": "─",
     "cursor": "❯",
     "dot": "·",
+    "more_up": "↑",
+    "more_down": "↓",
 }
 
 ASCII = {
@@ -24,6 +26,8 @@ ASCII = {
     "rule": "-",
     "cursor": ">",
     "dot": "-",
+    "more_up": "^",
+    "more_down": "v",
 }
 
 

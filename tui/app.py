@@ -28,6 +28,37 @@ PAIR_DIM = 4
 PAIR_BLOCKED = 5
 PAIR_SELECTED = 6
 
+# How long to wait for the rest of an escape sequence before calling it a bare
+# ESC. Long enough to survive a laggy link, short enough to feel instant.
+ESC_WINDOW_MS = 150
+# Longest sequence in ESC_SEQUENCES, used to stop reading runaway input.
+ESC_MAX_BODY = 4
+
+KEY_ESCAPE = 27
+# Returned for input that was understood well enough to know it is not a key
+# this screen acts on. Distinct from -1, which means nothing arrived.
+KEY_IGNORE = -2
+
+# Escape sequences as terminals actually send them.
+#
+# keypad(True) asks ncurses to decode these itself, and on a terminal that
+# honours smkx it does: the arrow keys arrive as KEY_UP and friends. A
+# terminal left in normal cursor mode sends CSI forms that the xterm terminfo
+# entry does not list, so ncurses hands back a bare ESC followed by the
+# remaining bytes. Read as a bare ESC that used to quit the screen on the
+# first arrow press, which left the selection stuck on its defaults. Decode
+# both forms here rather than trusting the terminal to be in the right mode.
+ESC_SEQUENCES = {
+    "[A": curses.KEY_UP, "OA": curses.KEY_UP,
+    "[B": curses.KEY_DOWN, "OB": curses.KEY_DOWN,
+    "[C": curses.KEY_RIGHT, "OC": curses.KEY_RIGHT,
+    "[D": curses.KEY_LEFT, "OD": curses.KEY_LEFT,
+    "[H": curses.KEY_HOME, "OH": curses.KEY_HOME, "[1~": curses.KEY_HOME,
+    "[F": curses.KEY_END, "OF": curses.KEY_END, "[4~": curses.KEY_END,
+    "[5~": curses.KEY_PPAGE,
+    "[6~": curses.KEY_NPAGE,
+}
+
 
 @dataclass
 class Row:
@@ -196,6 +227,25 @@ class Screen:
         win.addnstr(1, 1, self.machine, width - 2, curses.color_pair(PAIR_DIM))
         win.addnstr(2, 1, self.glyph["rule"] * max(0, width - 2), width - 2, curses.color_pair(PAIR_DIM))
 
+    def hidden_counts(self, list_height):
+        """Module rows scrolled off the top and off the bottom."""
+        above = sum(1 for row in self.rows[: self.top] if row.kind == "module")
+        below = sum(1 for row in self.rows[self.top + list_height:] if row.kind == "module")
+        return above, below
+
+    def draw_scroll_hint(self, win, y, width, count, glyph_name):
+        """Write "N more" over the right end of a rule line.
+
+        The list is routinely taller than the terminal, and a list that gives
+        no sign of continuing reads as the whole catalogue.
+        """
+        if count <= 0:
+            return
+        hint = " %s %d more " % (self.glyph[glyph_name], count)
+        column = width - 2 - len(hint)
+        if column > 1:
+            win.addnstr(y, column, hint, len(hint), curses.color_pair(PAIR_TITLE))
+
     def draw_row(self, win, y, index, width):
         row = self.rows[index]
         if row.kind == "header":
@@ -238,7 +288,7 @@ class Screen:
         if not pending:
             summary = "nothing selected %s everything ticked is already installed" % self.glyph["dot"]
 
-        keys = "up/down move   space toggle   a all   n none   d defaults   enter install   esc/q quit"
+        keys = "up/down move  space toggle  a all  n none  d reset  enter install  q quit"
         win.addnstr(height - 3, 1, self.glyph["rule"] * max(0, width - 2), width - 2, curses.color_pair(PAIR_DIM))
         win.addnstr(height - 2, 1, summary, width - 2, curses.color_pair(PAIR_TITLE))
         win.addnstr(height - 1, 1, keys, width - 2, curses.color_pair(PAIR_DIM))
@@ -258,9 +308,24 @@ class Screen:
             self.draw_row(win, HEADER_LINES + offset, index, width)
 
         self.draw_footer(win, height, width)
+        above, below = self.hidden_counts(list_height)
+        self.draw_scroll_hint(win, 2, width, above, "more_up")
+        self.draw_scroll_hint(win, height - 3, width, below, "more_down")
         win.refresh()
 
     # -- main loop ----------------------------------------------------------
+
+    def toggle_cursor_row(self):
+        row = self.rows[self.cursor]
+        if row.kind == "module":
+            self.toggle(row.module.id)
+
+    def jump(self, to_end, height):
+        indices = [i for i, row in enumerate(self.rows) if row.kind == "module"]
+        if not indices:
+            return
+        self.cursor = indices[-1] if to_end else indices[0]
+        self._scroll_into_view(height)
 
     def handle_key(self, key, list_height):
         if key in (curses.KEY_UP, ord("k")):
@@ -273,22 +338,74 @@ class Screen:
         elif key in (curses.KEY_NPAGE,):
             for _ in range(list_height):
                 self.move(1, list_height)
+        elif key in (curses.KEY_HOME, ord("g")):
+            self.jump(False, list_height)
+        elif key in (curses.KEY_END, ord("G")):
+            self.jump(True, list_height)
         elif key in (ord(" "), curses.KEY_RIGHT, curses.KEY_LEFT):
-            row = self.rows[self.cursor]
-            if row.kind == "module":
-                self.toggle(row.module.id)
+            self.toggle_cursor_row()
         elif key in (ord("a"), ord("A")):
             self.set_all(True)
         elif key in (ord("n"), ord("N")):
             self.set_all(False)
         elif key in (ord("d"), ord("D")):
             self.reset_defaults()
+        elif key == curses.KEY_MOUSE:
+            self.handle_mouse(list_height)
         elif key in (curses.KEY_ENTER, 10, 13):
             self.confirmed = True
             return False
-        elif key in (ord("q"), ord("Q"), 27):
+        elif key in (ord("q"), ord("Q"), KEY_ESCAPE):
             return False
         return True
+
+    def handle_mouse(self, list_height):
+        """A click on a module line moves the cursor there and toggles it."""
+        try:
+            _, _, row_y, _, state = curses.getmouse()
+        except curses.error:
+            return
+        index = self.top + row_y - HEADER_LINES
+        if not 0 <= index < len(self.rows) or self.rows[index].kind != "module":
+            return
+        self.cursor = index
+        self._scroll_into_view(list_height)
+        if state & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED | curses.BUTTON1_RELEASED):
+            self.toggle_cursor_row()
+
+    # -- input --------------------------------------------------------------
+
+    def read_key(self, win):
+        """One keypress, with escape sequences decoded whatever mode the
+        terminal is in. See ESC_SEQUENCES for why this is not left to curses."""
+        key = win.getch()
+        if key != KEY_ESCAPE:
+            return key
+        return self.read_escape(win)
+
+    def read_escape(self, win):
+        """Read the bytes after an ESC and name the key they spell.
+
+        Returns the decoded key, KEY_ESCAPE when the ESC stood alone, or
+        KEY_IGNORE for a sequence this screen has no use for. Only a genuinely
+        solitary ESC quits, so a split or unknown sequence can never be
+        mistaken for the user asking to leave.
+        """
+        win.timeout(ESC_WINDOW_MS)
+        try:
+            body = ""
+            while len(body) < ESC_MAX_BODY:
+                following = win.getch()
+                if following < 0 or following > 255:
+                    break
+                body += chr(following)
+                if body in ESC_SEQUENCES:
+                    return ESC_SEQUENCES[body]
+                if not any(known.startswith(body) for known in ESC_SEQUENCES):
+                    return KEY_IGNORE
+            return KEY_ESCAPE if not body else KEY_IGNORE
+        finally:
+            win.timeout(-1)
 
     def run(self, win):
         curses.curs_set(0)
@@ -298,16 +415,22 @@ class Screen:
         # as a frozen screen; 25ms is still ample to collect the rest.
         if hasattr(curses, "set_escdelay"):
             curses.set_escdelay(25)
+        # Clicking a line is the other thing people try when the keys look
+        # unresponsive. Terminals that report no mouse simply never send one.
+        try:
+            curses.mousemask(curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED | curses.BUTTON1_RELEASED)
+        except curses.error:
+            pass
         running = True
         while running:
             self.draw(win)
             height, _ = win.getmaxyx()
             list_height = max(1, height - HEADER_LINES - FOOTER_LINES)
             try:
-                key = win.getch()
+                key = self.read_key(win)
             except KeyboardInterrupt:
                 return
-            if key == curses.KEY_RESIZE:
+            if key in (curses.KEY_RESIZE, KEY_IGNORE, -1):
                 continue
             running = self.handle_key(key, list_height)
 
