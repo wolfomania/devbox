@@ -1,0 +1,6 @@
+{
+  "name": "devbox",
+  "description": "Commands, skills, rules and hooks carried to every machine devbox provisions.",
+  "version": "0.1.0",
+  "author": { "name": "wolfomania" }
+}

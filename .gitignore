@@ -26,3 +26,11 @@ desktop.ini
 # Local scratch
 *.log
 tmp/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Locally saved selections
+profiles/*.conf
+!profiles/example.conf

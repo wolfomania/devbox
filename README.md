@@ -1,43 +1,113 @@
 # devbox
 
-A record of my development box environment, kept so that it can be reproduced on another
-machine. The box is a GCP Compute Engine VM in zone `europe-central2-a` — 4 vCPU, 15 GiB RAM,
-96 GB root disk — running Ubuntu 24.04.4 LTS (Noble Numbat).
+One command to provision a development box. `install.sh` inspects the machine,
+shows what is already installed, and installs only what is missing.
 
-This repository holds documentation only. There is no code to run and nothing to install from
-here; it is the reference you read while rebuilding.
+Not related to [Jetify's devbox](https://github.com/jetify-com/devbox), which
+manages per-project Nix environments.
 
-## Contents
+## Quick start
 
-- [`docs/inventory.md`](docs/inventory.md) — the full environment inventory: every language
-  runtime, compiler, CLI tool and toolchain directory, with exact versions. Snapshot taken
-  2026-09-09.
+```sh
+git clone https://github.com/wolfomania/devbox.git
+cd devbox
+./install.sh
+```
 
-## Not in apt
+Arrow keys move, space toggles, enter installs, `q` quits.
 
-Most of the box comes from Ubuntu packages and can be restored with `apt install`. The
-following do not, and have to be installed outside the package manager. Reinstall these by
-hand after the apt layer is in place.
+## What it does
 
-- **Go** — installed from the official tarball into `/usr/local/go`, currently go1.26.4
-  linux/amd64. There is no Go apt package on this box, so do not expect `apt install golang` to
-  reproduce it.
-- **nvm** — 0.40.1, installed by its own install script into `~/.nvm`. It provides node
-  v24.18.0, which in turn provides npm 11.16.0, pnpm 11.9.0 and corepack 0.35.0.
-- **rustup** — 1.29.0, installed from rustup.rs into `~/.cargo` and `~/.rustup`. Provides rustc
-  1.96.1, cargo 1.96.1, rustfmt 1.9.0-stable, clippy 0.1.96 and rust-analyzer, on a single
-  `stable-x86_64-unknown-linux-gnu` toolchain.
-- **uv** — 0.11.26 in `~/.local/bin`, plus a uv-managed CPython 3.8.13 under
-  `~/.local/share/uv`.
-- **pipx apps** — yt-dlp 2026.7.4, running on Python 3.12.3.
-- **npm globals** — supabase 2.114.0 and vercel 54.20.1, installed into the nvm node tree at
-  `~/.nvm/versions/node/v24.18.0/lib/node_modules`.
-- **uv tools** — modal 1.5.5.
-- **pip3 --user** — playwright 1.61.0.
+- Detects OS, architecture, package manager, RAM, free disk and whether root is available.
+- Probes every module and reports the installed version. Anything already present is skipped.
+- Installs under `$HOME` wherever possible; root is used only for system packages.
+- Pins every version in [`manifest.toml`](manifest.toml).
+- Writes PATH changes to one file, `~/.config/devbox/env.sh`, sourced from your shell profile.
 
-Two things worth knowing before you start:
+## Modules
 
-- `pnpm setup` was never run on this box, so `~/.local/share/pnpm/bin` is not on PATH and there
-  are no pnpm globals to restore.
-- The cargo and `~/go/bin` install sets are both empty. Nothing was installed with
-  `cargo install` or `go install`.
+| Module | Category | Default | Root | Installs |
+|---|---|---|---|---|
+| `base` | core | yes | yes | gcc, make, curl, wget, unzip |
+| `git` | core | yes | yes | git |
+| `gh` | core | yes | yes | GitHub CLI, from cli.github.com |
+| `cli` | core | yes | yes | ripgrep, jq, fzf, tmux, htop, tree |
+| `python` | languages | yes | no | uv |
+| `node` | languages | yes | no | nvm, node |
+| `go` | languages | yes | no | Go, from the official tarball |
+| `rust` | languages | yes | no | rustup, cargo, clippy, rustfmt |
+| `java` | languages | no | yes | OpenJDK headless |
+| `ruby` | languages | no | yes | ruby, gem, rake |
+| `latex` | optional | no | yes | TeX Live, latexmk |
+| `docker` | optional | no | yes | docker, compose plugin |
+| `claude-code` | optional | no | no | Claude Code |
+| `codex` | optional | no | no | Codex CLI (requires `node`) |
+| `db` | optional | no | yes | psql, sqlite3 |
+| `editors` | optional | no | yes | neovim |
+
+## Options
+
+| Flag | Effect |
+|---|---|
+| `--list` | Print module status and exit. Changes nothing. |
+| `-y`, `--yes` | Install the default selection without opening the screen. |
+| `--profile FILE` | Read the selection from a profile file. |
+| `--save-profile FILE` | Write the selection to a profile file. |
+| `--with a,b` | Add modules to the selection. |
+| `--without a,b` | Remove modules from the selection. |
+| `--dry-run` | Print what would be installed. Changes nothing. |
+
+When stdin is not a terminal, the selection screen is skipped and the default
+selection is installed, so piping the script into a shell never hangs.
+
+Provisioning a server over SSH:
+
+```sh
+./install.sh --profile profiles/example.conf --yes
+```
+
+## Without root
+
+Modules marked **Root** in the table above need a system package manager. When
+`install.sh` runs as a normal user with no `sudo`, it lists those modules at
+startup, marks them unavailable on the selection screen, and installs the rest
+under `$HOME`.
+
+## Low memory
+
+Below 2048 MiB of RAM plus swap, `install.sh` offers to create a 2048 MiB
+swapfile at `/swapfile` and register it in `/etc/fstab`. It is offered, never
+imposed, and is skipped entirely under `--yes`. Undo with:
+
+```sh
+sudo swapoff /swapfile && sudo rm /swapfile
+sudo sed -i '/^\/swapfile /d' /etc/fstab
+```
+
+## Supported systems
+
+- Debian and Ubuntu, via apt.
+- `dnf`, `pacman`, `apk` and `brew` are detected but not yet implemented; those
+  boxes can still install every module that does not need root.
+- Requires `python3` 3.8 or newer with the `curses` module, and `curl` or `wget`.
+
+## Layout
+
+```
+install.sh          entry point: detect, select, install
+manifest.toml       module catalogue and pinned versions
+lib/                detection, package manager, swap, PATH handling
+modules/            one script per module, each defining dvb_check and dvb_install
+tui/                selection screen (Python stdlib curses)
+plugin/             agent configuration bundled with the AI CLI modules
+profiles/           saved selections
+```
+
+## Adding a module
+
+1. Add a `[[module]]` block to `manifest.toml`.
+2. Create the script it points at, defining two functions:
+   - `dvb_check` — print the installed version and return 0, or return 1 if absent.
+   - `dvb_install` — install it, returning non-zero on failure.
+3. Use `pkg_install` for system packages and `env_add` for PATH changes. Never
+   write to a shell profile directly.

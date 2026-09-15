@@ -1,0 +1,233 @@
+# devbox module manifest
+#
+# Single source of truth for the catalogue: what can be installed, which version is
+# pinned, whether root is required, and what is selected by default.
+#
+# Bump `pin` to move a tool forward. Everything else reads this file; no version
+# number is hard-coded in a module script.
+
+[meta]
+schema = 1
+updated = "2026-09-15"
+
+# ---------------------------------------------------------------------------
+# core - the baseline every box gets
+# ---------------------------------------------------------------------------
+
+[[module]]
+id = "base"
+name = "Build essentials"
+category = "core"
+summary = "gcc, make, curl, wget, unzip, ca-certificates"
+script = "modules/core/base.sh"
+default = true
+required = true
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 210
+
+[[module]]
+id = "git"
+name = "Git"
+category = "core"
+summary = "version control, plus a sane global config"
+script = "modules/core/git.sh"
+default = true
+required = true
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 30
+
+[[module]]
+id = "gh"
+name = "GitHub CLI"
+category = "core"
+summary = "gh, from the official cli.github.com apt repository"
+script = "modules/core/gh.sh"
+default = true
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 55
+
+[[module]]
+id = "cli"
+name = "Shell toolkit"
+category = "core"
+summary = "ripgrep, jq, fzf, tmux, htop, tree"
+script = "modules/core/cli.sh"
+default = true
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 40
+
+# ---------------------------------------------------------------------------
+# languages - preselected
+# ---------------------------------------------------------------------------
+
+[[module]]
+id = "python"
+name = "Python"
+category = "languages"
+summary = "uv, the resolver and version manager; installs to ~/.local/bin"
+script = "modules/lang/python.sh"
+default = true
+required = false
+needs_root = false
+pin = "0.11.26"
+pin_kind = "script"
+size_mb = 50
+
+[[module]]
+id = "node"
+name = "Node.js"
+category = "languages"
+summary = "nvm plus a pinned node release; installs to ~/.nvm"
+script = "modules/lang/node.sh"
+default = true
+required = false
+needs_root = false
+pin = "24.18.0"
+pin_kind = "nvm"
+pin_extra = "0.40.1"  # nvm itself
+size_mb = 120
+
+[[module]]
+id = "go"
+name = "Go"
+category = "languages"
+summary = "official tarball, unpacked under ~/.local/share/devbox"
+script = "modules/lang/go.sh"
+default = true
+required = false
+needs_root = false
+pin = "1.26.4"
+pin_kind = "tarball"
+size_mb = 260
+
+[[module]]
+id = "rust"
+name = "Rust"
+category = "languages"
+summary = "rustup with the stable toolchain, cargo, clippy, rustfmt"
+script = "modules/lang/rust.sh"
+default = true
+required = false
+needs_root = false
+pin = "1.96.1"
+pin_kind = "rustup"
+size_mb = 900
+
+[[module]]
+id = "java"
+name = "Java"
+category = "languages"
+summary = "OpenJDK headless JDK"
+script = "modules/lang/java.sh"
+default = false
+required = false
+needs_root = true
+pin = "21"
+pin_kind = "apt"
+size_mb = 320
+
+[[module]]
+id = "ruby"
+name = "Ruby"
+category = "languages"
+summary = "ruby, gem, rake, bundler"
+script = "modules/lang/ruby.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 90
+
+# ---------------------------------------------------------------------------
+# optional - unchecked by default
+# ---------------------------------------------------------------------------
+
+[[module]]
+id = "latex"
+name = "LaTeX"
+category = "optional"
+summary = "TeX Live: latex, pdflatex, lualatex, recommended fonts"
+script = "modules/optional/latex.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 2400
+
+[[module]]
+id = "docker"
+name = "Docker"
+category = "optional"
+summary = "docker engine and the compose plugin"
+script = "modules/optional/docker.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 420
+
+[[module]]
+id = "claude-code"
+name = "Claude Code"
+category = "optional"
+summary = "Anthropic's terminal agent; can also install the bundled plugin"
+script = "modules/optional/claude-code.sh"
+default = false
+required = false
+needs_root = false
+pin = "latest"
+pin_kind = "script"
+size_mb = 220
+
+[[module]]
+id = "codex"
+name = "Codex CLI"
+category = "optional"
+summary = "OpenAI's terminal agent; requires the Node module"
+script = "modules/optional/codex.sh"
+requires = ["node"]
+default = false
+required = false
+needs_root = false
+pin = "latest"
+pin_kind = "npm"
+size_mb = 90
+
+[[module]]
+id = "db"
+name = "Database clients"
+category = "optional"
+summary = "psql and the sqlite3 CLI"
+script = "modules/optional/db.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 35
+
+[[module]]
+id = "editors"
+name = "Neovim"
+category = "optional"
+summary = "neovim, with no configuration imposed"
+script = "modules/optional/editors.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 45
