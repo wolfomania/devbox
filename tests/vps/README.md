@@ -13,11 +13,16 @@ time a change touches `lib/swap.sh`, `lib/paths.sh` or the bootstrap.
 
 ```sh
 ./tests/vps/run.sh                       # default scenario, current working tree
-./tests/vps/run.sh --scenario minimal    # core + Python only, about 2 minutes
+./tests/vps/run.sh --scenario minimal    # defaults + Python, about 2 minutes
+./tests/vps/run.sh --scenario full       # every module a normal box wants
 ./tests/vps/run.sh --scenario root       # install as root rather than via sudo
 ./tests/vps/run.sh --source github --ref main   # exercise the curl | sh bootstrap
 ./tests/vps/run.sh --keep                # leave the box up to debug it
 ```
+
+`--yes` installs the default selection, which is now the required modules
+plus `swap` on a box short of memory. A scenario that wants more names it
+with `--with`.
 
 With `--keep`, connect to the surviving instance with:
 
