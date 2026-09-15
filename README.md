@@ -40,6 +40,7 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 
 | Category | Module | Selection | Root | Installs |
 |---|---|---|---|---|
+| System | `swap` | default | yes | a swapfile, on a box under 2 GiB of memory |
 | Core | `base` | required | yes | gcc, make, curl, wget, unzip, ca-certificates |
 | Core | `git` | required | yes | Git |
 | Core | `gh` | optional | yes | GitHub CLI |
@@ -57,9 +58,9 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | AI agents | `codex` | optional | no | Codex CLI; requires `node` |
 | Documents | `latex` | optional | yes | TeX Live, latexmk |
 
-Only the required modules are ticked when the screen opens. Space ticks
-the rest. Versions and dependencies are defined in
-[`manifests/`](manifests).
+Only the required modules are ticked when the screen opens, plus `swap` on
+a box with too little memory to build on. Space ticks the rest. Versions
+and dependencies are defined in [`manifests/`](manifests).
 
 ## Options
 

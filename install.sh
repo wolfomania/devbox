@@ -103,8 +103,6 @@ export DVB_MANIFEST
 . "$DVB_ROOT/lib/detect.sh"
 # shellcheck source=lib/pkg.sh
 . "$DVB_ROOT/lib/pkg.sh"
-# shellcheck source=lib/swap.sh
-. "$DVB_ROOT/lib/swap.sh"
 # shellcheck source=lib/paths.sh
 . "$DVB_ROOT/lib/paths.sh"
 
@@ -267,8 +265,10 @@ print_list() {
 			printf '  %s%-4s%s %-18s %s\n' "$C_GREEN" "ok" "$C_RESET" "$id" "$version"
 		elif [ "$needs_root" = "1" ] && [ "$DVB_CAN_ROOT" -eq 0 ]; then
 			printf '  %s%-4s%s %-18s needs root\n' "$C_YELLOW" "--" "$C_RESET" "$id"
-		else
+		elif [ -n "$pin" ]; then
 			printf '  %s%-4s%s %-18s not installed, pinned %s\n' "$C_DIM" "--" "$C_RESET" "$id" "$pin"
+		else
+			printf '  %s%-4s%s %-18s not installed\n' "$C_DIM" "--" "$C_RESET" "$id"
 		fi
 	done
 }
@@ -404,29 +404,6 @@ install_selection() {
 	log_dim "  open a new shell, or run:  . $DVB_ENV_FILE"
 }
 
-# --- low memory ------------------------------------------------------------
-
-offer_swap() {
-	swap_is_low || return 0
-
-	log_warn "only ${DVB_RAM_MB} MiB of ram and ${DVB_SWAP_MB} MiB of swap; large toolchains may fail"
-	if ! swap_can_create; then
-		log_dim "  cannot add swap here (needs root, free disk and no existing /swapfile)"
-		return 0
-	fi
-	if [ "$OPT_YES" -eq 1 ]; then
-		log_dim "  --yes given; not creating swap without being asked"
-		return 0
-	fi
-
-	printf '  Create a %s MiB swapfile at %s? [y/N] ' "$SWAP_CREATE_MB" "$SWAP_PATH"
-	read -r answer
-	case "$answer" in
-		y | Y | yes | YES) swap_create || log_warn "swapfile creation failed, continuing" ;;
-		*) log_skip "no swapfile created" ;;
-	esac
-}
-
 report_capabilities() {
 	[ "$DVB_CAN_ROOT" -eq 1 ] && return 0
 
@@ -476,7 +453,6 @@ run_selection() {
 
 	if [ "$OPT_DRY_RUN" -eq 0 ]; then
 		prime_sudo
-		offer_swap
 		env_init
 	fi
 	install_selection

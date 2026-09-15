@@ -1,0 +1,21 @@
+# System
+#
+# What the machine itself needs before anything is downloaded onto it. These
+# come first in the list because they come first in the install.
+
+[manifest]
+category = "system"
+title = "System"
+order = 5
+
+[[module]]
+id = "swap"
+name = "Swap"
+summary = "a swapfile, on a box with under 2 GiB of memory to build in"
+script = "modules/system/swap.sh"
+default = true
+required = false
+needs_root = true
+pin = ""
+pin_kind = "none"
+size_mb = 0

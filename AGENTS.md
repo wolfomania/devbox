@@ -63,9 +63,12 @@ Bundle parts are tested the same way and named by file:
 `./tests/modules/run.sh ripgrep`.
 
 Both module runners read the manifest and the parts directory, so a new module
-or a new part needs no new test. Two modules are handled differently:
+or a new part needs no new test. Three modules are handled differently:
 
 - `docker` needs a real machine. `./tests/vps/run.sh --modules docker` covers it.
+- `swap` needs a real machine too, for the same reason: `/proc/meminfo` is not
+  namespaced and `swapon` in a container touches the host.
+  `./tests/vps/run.sh --modules swap` covers it.
 - `latex` is 2.4 GB and is skipped unless you ask: `./tests/modules/run.sh --all`.
 
 The selection screen is driven through a real pty, because what broke it once

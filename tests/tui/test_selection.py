@@ -19,7 +19,11 @@ import drive
 # What the screen ticks on a box where nothing is installed yet: the build
 # essentials and nothing else. Everything else is one keypress away, and
 # deselecting seven rows every time was the cost of the old default.
-DEFAULTS = ["base", "git"]
+#
+# Swap is ticked too, and comes first, because the probe reports it as missing
+# only on a box that is short of memory. On a roomy box it reads as satisfied
+# and drops out of the list by itself.
+DEFAULTS = ["swap", "base", "git"]
 
 
 class SelectionScreenTest(unittest.TestCase):
@@ -115,6 +119,26 @@ class SelectionScreenTest(unittest.TestCase):
     def test_n_clears_everything_except_the_required_modules(self):
         result = drive.run(["n", "ENTER", "y"])
         self.assertEqual(result.selection, ["base", "git"])
+
+    # -- swap ---------------------------------------------------------------
+
+    def test_swap_is_the_first_row_and_ticked(self):
+        """It has to be first: a box short of memory needs the swapfile before
+        the toolchains that would otherwise run out of it."""
+        self.assertEqual(drive.catalogue().modules[0].id, "swap")
+        result = drive.run(["ENTER", "y"])
+        self.assertEqual(result.selection[0], "swap")
+
+    def test_swap_drops_out_when_the_box_has_memory_enough(self):
+        """The probe answers the question, so a roomy box never sees the row
+        ticked and never runs the module."""
+        result = drive.run(["ENTER", "y"], state=self.state_with(["swap"]))
+        self.assertNotIn("swap", result.selection)
+
+    def test_swap_can_be_turned_off(self):
+        result = drive.run(drive.steps_to("swap") + ["SPACE", "ENTER", "y"])
+        self.assertTrue(result.confirmed)
+        self.assertNotIn("swap", result.selection)
 
     def test_a_selects_every_available_module(self):
         result = drive.run(["a", "ENTER", "y"])

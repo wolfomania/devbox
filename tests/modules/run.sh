@@ -23,7 +23,9 @@ IMAGE_READY="devbox-test:ready"
 BASE_IMAGE="${DVB_TEST_IMAGE:-ubuntu:24.04}"
 
 # Needs a real machine, not a container: covered by tests/vps instead.
-SKIP_MODULES="docker"
+# /proc/meminfo is not namespaced and swapon either fails in a container or,
+# under --privileged, adds swap to the host, so swap belongs in that tier too.
+SKIP_MODULES="docker swap"
 # Correct in a container but too large to run on every change. --all includes
 # them.
 SLOW_MODULES="latex"
