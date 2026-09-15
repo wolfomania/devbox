@@ -6,13 +6,18 @@ detected and skipped.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh
 ```
 
 - Arrow keys: move
 - Space: toggle
 - Enter: install
 - Esc or `q`: exit
+
+Run without `sudo`. devbox asks for sudo only when a step needs root, so the
+menu stays interactive. Piping into `sudo` (`| sudo sh`) makes sudo run the
+installer as a background job on its own terminal, where the menu cannot read
+the keyboard; devbox detects this and prints the fix.
 
 The menu reopens after each install. The one-line command downloads the
 repository to `~/.local/share/devbox/src`.
@@ -28,7 +33,7 @@ cd devbox
 Pass options through the one-line command with `sh -s --`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sudo sh -s -- --yes
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh -s -- --yes
 ```
 
 Set `DVB_REPO` and `DVB_REF` to use another repository or branch.

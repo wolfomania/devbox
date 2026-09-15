@@ -431,7 +431,53 @@ report_capabilities() {
 	printf '  Re-run with sudo to enable the rest.\n'
 }
 
+# --- terminal ---------------------------------------------------------------
+
+# True when a full-screen program launched here can actually read the keyboard:
+# stdin is a terminal and this process group owns that terminal's foreground.
+#
+# Piped into `sudo` (curl ... | sudo sh) on a box where sudo uses a pty, sudo
+# runs the whole installer as a *background* process group on its pty. A
+# background process cannot read the controlling terminal: every read returns
+# EIO, so the selection menu would receive no keystrokes and sit on its
+# defaults. Detect that here rather than opening a menu that cannot be driven.
+tty_is_interactive() {
+	[ -t 0 ] || return 1
+	fg_pgrp="$(ps -o tpgid= -p $$ 2>/dev/null | tr -d ' ')"
+	our_pgrp="$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')"
+	[ -n "$fg_pgrp" ] && [ "$fg_pgrp" = "$our_pgrp" ]
+}
+
+# The `curl ... | sudo sh` case: a terminal is attached but sudo has put us in
+# the background of its pty, so the menu cannot read it. Explain the one-line
+# fix instead of silently installing the defaults.
+warn_piped_sudo() {
+	url="https://raw.githubusercontent.com/${DVB_REPO}/${DVB_REF}/install.sh"
+	log_head "Cannot open the selection menu"
+	log_warn "piped into sudo, the menu cannot read the keyboard"
+	printf '  sudo runs the installer as a background job on its own terminal,\n'
+	printf '  so no keystroke reaches the menu. Re-run without sudo instead --\n'
+	printf '  devbox asks for sudo only when a step needs root:\n\n'
+	printf '      curl -fsSL %s | sh\n\n' "$url"
+	printf '  Or run the defaults non-interactively:\n\n'
+	printf '      curl -fsSL %s | sudo sh -s -- --yes\n' "$url"
+}
+
 # --- main ------------------------------------------------------------------
+
+# Probe, pick the defaults, install them. Used when there is no terminal to
+# drive (automation) or the caller asked for a headless run with --yes/--profile.
+run_headless() {
+	probe_report
+	select_headless
+	if [ ! -s "$SELECT_FILE" ]; then
+		log_head "Nothing to do"
+		log_dim "  everything selected is already installed"
+		exit 0
+	fi
+	run_selection
+	exit $?
+}
 
 probe_report() {
 	log_step "Checking what is already installed"
@@ -455,10 +501,31 @@ run_selection() {
 	done < "$SELECT_FILE"
 
 	if [ "$OPT_DRY_RUN" -eq 0 ]; then
+		prime_sudo
 		offer_swap
 		env_init
 	fi
 	install_selection
+}
+
+# True when a selected module needs root, so we know whether sudo is required
+# before the first module runs.
+selection_needs_root() {
+	while read -r id; do
+		[ -n "$id" ] || continue
+		[ "$(manifest_query field "$id" needs_root)" = "True" ] && return 0
+	done < "$SELECT_FILE"
+	return 1
+}
+
+# Ask for the sudo password once, up front, so the per-module installs do not
+# each stop to prompt. A no-op when we are already root or sudo needs no
+# password; the modules escalate through as_root either way.
+prime_sudo() {
+	[ "$DVB_PRIV" = "sudo-password" ] || return 0
+	selection_needs_root || return 0
+	log_dim "  some steps need root; caching your sudo credentials"
+	sudo -v || die "sudo authentication failed"
 }
 
 # Wait for the user before painting over the install log with the menu again.
@@ -526,19 +593,22 @@ main() {
 		exit 0
 	fi
 
-	if [ "$OPT_YES" -eq 1 ] || [ -n "$OPT_PROFILE" ] || [ ! -t 0 ]; then
-		probe_report
-		select_headless
-		if [ ! -s "$SELECT_FILE" ]; then
-			log_head "Nothing to do"
-			log_dim "  everything selected is already installed"
-			exit 0
-		fi
-		run_selection
-		exit $?
+	# An explicit headless run: install the defaults with no menu.
+	if [ "$OPT_YES" -eq 1 ] || [ -n "$OPT_PROFILE" ]; then
+		run_headless
 	fi
 
-	interactive_loop
+	if tty_is_interactive; then
+		interactive_loop
+	elif [ -t 0 ]; then
+		# A terminal is attached but we cannot drive it: `curl ... | sudo sh`.
+		# Guide the user rather than silently installing the defaults.
+		warn_piped_sudo
+		exit 1
+	else
+		# No terminal at all (automation, a cron job): install the defaults.
+		run_headless
+	fi
 }
 
 main "$@"
