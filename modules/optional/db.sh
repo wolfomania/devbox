@@ -2,19 +2,21 @@
 # Client tools only. No database server is installed or started.
 #
 #   modules/optional/db.sh check | install | version
+#
+# A bundle: one line in the selection screen, one script per tool in
+# modules/parts. Each of those installs on its own.
 . "$(dirname -- "$0")/../../lib/module.sh"
 
-DB_PACKAGES="postgresql-client sqlite3"
+DB_PARTS="postgresql-client sqlite3"
 
 dvb_check() {
-	command -v psql >/dev/null 2>&1 || return 1
-	command -v sqlite3 >/dev/null 2>&1 || return 1
-	psql --version 2>/dev/null | awk '{print "psql", $3}'
+	# shellcheck disable=SC2086
+	dvb_check_parts $DB_PARTS
 }
 
 dvb_install() {
 	# shellcheck disable=SC2086
-	pkg_install $DB_PACKAGES
+	dvb_install_parts $DB_PARTS
 }
 
 dvb_main "$@"

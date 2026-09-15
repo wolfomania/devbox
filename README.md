@@ -117,22 +117,66 @@ sudo sed -i '/^\/swapfile /d' /etc/fstab
 install.sh          entry point: bootstrap, detect, select, install
 manifests/          module catalogue, one .toml per category
 lib/                detection, package manager, swap, PATH handling
-modules/            one script per module, each defining dvb_check and dvb_install
+modules/            one script per module, each runnable on its own
+modules/parts/      one script per tool, for the modules that are bundles
 tui/                selection screen (Python stdlib curses)
 plugin/             agent configuration bundled with the AI CLI modules
 profiles/           saved selections
+tests/              selection screen, modules in containers, modules on a VPS
 ```
+
+## Running one module
+
+Every module is a script that installs one thing and stops:
+
+```sh
+./modules/lang/go.sh check      # print the installed version, or exit 1
+./modules/lang/go.sh install    # install it, then exit
+./modules/lang/go.sh version    # print the version it is pinned to
+```
+
+`install.sh` runs modules through these same commands. The pinned version
+comes from the manifest either way, so a module never carries a second copy
+of a version number.
+
+A module whose menu line covers several independently useful tools is a
+bundle. Its parts live in `modules/parts`, one tool each, and run the same way:
+
+```sh
+./modules/parts/ripgrep.sh install     # just ripgrep
+./modules/core/cli.sh install          # all six tools of the Shell toolkit
+./modules/core/cli.sh check            # "4 of 6 present", and a non-zero exit
+```
+
+A bundle installs every part even after one fails, and names the ones that
+did, so a missing package takes out one tool rather than the whole line.
+`base`, `cli` and `db` are bundles today.
 
 ## Adding a module
 
 1. Add a `[[module]]` block to the manifest file for its category. The
    `category` comes from that file's `[manifest]` block; a module only sets its
    own to override it.
-2. Create the script it points at, defining two functions:
+2. Create the script it points at. It sources `lib/module.sh`, defines two
+   functions, and calls `dvb_main "$@"`:
    - `dvb_check` — print the installed version and return 0, or return 1 if absent.
    - `dvb_install` — install it, returning non-zero on failure.
 3. Use `pkg_install` for system packages and `env_add` for PATH changes. Never
    write to a shell profile directly.
+4. Test it: `./tests/modules/run.sh <id>` installs it on its own in a
+   throwaway container and checks the result. No new test file is needed; the
+   runner reads the manifest.
+
+A bundle instead defines its parts and delegates:
+
+```sh
+CLI_PARTS="ripgrep jq fzf tmux htop tree"
+dvb_check()   { dvb_check_parts $CLI_PARTS; }
+dvb_install() { dvb_install_parts $CLI_PARTS; }
+```
+
+Each part is a script in `modules/parts` that sets `DVB_UNLISTED=1` before
+sourcing `lib/module.sh`, because it has no manifest entry and so no pin.
 
 Dependencies cross files freely: `requires = ["node"]` on `codex` in
 `50-ai.toml` pulls `node` from `20-languages.toml` and installs it first.

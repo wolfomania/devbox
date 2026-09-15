@@ -14,6 +14,13 @@
 #
 # A module sources this file first, defines dvb_check and dvb_install, and
 # calls dvb_main "$@" last.
+#
+# A module whose menu line covers several independently useful tools is a
+# bundle: its parts live in modules/parts, one tool each, and the bundle calls
+# dvb_check_parts and dvb_install_parts. A part is a module in every other
+# respect, and can be run on its own the same way. It sets DVB_UNLISTED=1
+# before sourcing this file, because it has no line of its own in the manifest
+# and so no pinned version to look up.
 
 set -u
 
@@ -56,6 +63,7 @@ dvb_module_path() {
 # standalone run reads it here.
 dvb_load_pin() {
 	[ -z "${MOD_PIN:-}" ] || return 0
+	[ "${DVB_UNLISTED:-0}" -eq 0 ] || return 0
 
 	[ -n "$DVB_PYTHON" ] || die "python3 is required to read the pinned version from the manifest"
 	pins="$("$DVB_PYTHON" "$DVB_ROOT/tui/manifest.py" pins "$(dvb_module_path)")" ||
@@ -64,6 +72,44 @@ dvb_load_pin() {
 	MOD_PIN="$(printf '%s' "$pins" | cut -f1)"
 	MOD_PIN_EXTRA="$(printf '%s' "$pins" | cut -f2)"
 	export MOD_PIN MOD_PIN_EXTRA
+}
+
+# --- bundles ---------------------------------------------------------------
+
+dvb_part() { printf '%s\n' "$DVB_ROOT/modules/parts/$1.sh"; }
+
+# Install each part in turn.
+#
+# Every part is attempted even after one fails, because the tools in a bundle
+# do not depend on each other and a box with five of the six is more useful
+# than a box with none. The names that failed are reported together.
+dvb_install_parts() {
+	failed=""
+	for part in "$@"; do
+		"$(dvb_part "$part")" install || failed="$failed $part"
+	done
+
+	[ -z "$failed" ] || {
+		log_err "part(s) failed:$failed"
+		return 1
+	}
+	return 0
+}
+
+# A bundle is installed when every one of its parts is.
+#
+# The count is printed either way, so a bundle that is half there says so
+# rather than reading as entirely absent.
+dvb_check_parts() {
+	present=0
+	total=0
+	for part in "$@"; do
+		total=$((total + 1))
+		"$(dvb_part "$part")" check > /dev/null 2>&1 && present=$((present + 1))
+	done
+
+	printf '%d of %d present\n' "$present" "$total"
+	[ "$present" -eq "$total" ]
 }
 
 dvb_usage() {
@@ -86,6 +132,8 @@ dvb_main() {
 			dvb_install
 			;;
 		version)
+			[ "${DVB_UNLISTED:-0}" -eq 0 ] ||
+				die "no pinned version: this script is one part of a bundle"
 			dvb_load_pin
 			printf '%s\n' "$MOD_PIN"
 			;;
