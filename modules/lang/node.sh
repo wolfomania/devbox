@@ -22,7 +22,13 @@ dvb_install() {
 	# nvm is a shell function, so it has to run inside bash with nvm.sh sourced.
 	bash -c '. "$NVM_DIR/nvm.sh" && nvm install "$1" && nvm alias default "$1"' _ "$MOD_PIN" >/dev/null 2>&1 || return 1
 
+	# nvm.sh is a bash/zsh script. Sourcing it from dash is not merely
+	# useless, it is a syntax error, and dash answers a syntax error in a
+	# sourced file by killing the shell. env.sh is sourced by every probe and
+	# every install, so an unguarded nvm line here breaks all of devbox.
+	# Put node on PATH directly, and load nvm only where it actually runs.
 	env_add 'export NVM_DIR="$HOME/.nvm"'
-	env_add '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
+	env_add "export PATH=\"\$NVM_DIR/versions/node/v${MOD_PIN}/bin:\$PATH\""
+	env_add '[ -n "${BASH_VERSION:-}${ZSH_VERSION:-}" ] && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true'
 	[ -x "$NVM_DIR_PATH/versions/node/v${MOD_PIN}/bin/node" ]
 }

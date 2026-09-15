@@ -238,7 +238,7 @@ class Screen:
         if not pending:
             summary = "nothing selected %s everything ticked is already installed" % self.glyph["dot"]
 
-        keys = "up/down move   space toggle   a all   n none   d defaults   enter install   q quit"
+        keys = "up/down move   space toggle   a all   n none   d defaults   enter install   esc/q quit"
         win.addnstr(height - 3, 1, self.glyph["rule"] * max(0, width - 2), width - 2, curses.color_pair(PAIR_DIM))
         win.addnstr(height - 2, 1, summary, width - 2, curses.color_pair(PAIR_TITLE))
         win.addnstr(height - 1, 1, keys, width - 2, curses.color_pair(PAIR_DIM))
@@ -293,6 +293,11 @@ class Screen:
     def run(self, win):
         curses.curs_set(0)
         win.keypad(True)
+        # Escape is also the first byte of every arrow-key sequence, so curses
+        # waits before deciding. The default wait is a full second, which reads
+        # as a frozen screen; 25ms is still ample to collect the rest.
+        if hasattr(curses, "set_escdelay"):
+            curses.set_escdelay(25)
         running = True
         while running:
             self.draw(win)
@@ -342,8 +347,10 @@ def main(argv):
 
     curses.wrapper(bootstrap)
 
+    # 2 means the user chose to leave, which is not a failure. install.sh
+    # reserves 1 for the screen genuinely going wrong.
     if not screen.confirmed:
-        return 1
+        return 2
 
     pending = [i for i in screen.selected if states[i].status != manifest_mod.STATUS_INSTALLED]
     ordered = manifest_mod.resolve_order(catalogue, pending)

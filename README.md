@@ -3,16 +3,15 @@
 One command to provision a development box. `install.sh` inspects the machine,
 shows what is already installed, and installs only what is missing.
 
-Not related to [Jetify's devbox](https://github.com/jetify-com/devbox), which
-manages per-project Nix environments.
-
 ## Quick start
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sudo sh
 ```
 
-Arrow keys move, space toggles, enter installs, `q` quits.
+Arrow keys move, space toggles, enter installs. The selection screen
+reopens when the install finishes, whether it succeeded or not, so you can
+pick the next thing; `esc` or `q` leaves.
 
 That one file is the whole entry point. Piped into a shell it downloads the
 rest of the repository to `~/.local/share/devbox/src`, re-runs from there, and
@@ -20,7 +19,7 @@ reattaches the terminal so the selection screen still works. Flags pass through
 with `sh -s --`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh -s -- --yes
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sudo sh -s -- --yes
 ```
 
 From a clone it runs in place and downloads nothing:

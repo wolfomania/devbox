@@ -5,10 +5,15 @@
 # source line to the user's shell profiles. Uninstalling is deleting that file
 # and that line; no module ever appends to .bashrc directly.
 
-DVB_ENV_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/devbox"
-DVB_ENV_FILE="$DVB_ENV_DIR/env.sh"
-DVB_PREFIX="${XDG_DATA_HOME:-$HOME/.local/share}/devbox"
-DVB_BIN="$HOME/.local/bin"
+# Derived from HOME, which install.sh may retarget when it is run under sudo,
+# so these live in a function that can be called again.
+paths_refresh() {
+	DVB_ENV_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/devbox"
+	DVB_ENV_FILE="$DVB_ENV_DIR/env.sh"
+	DVB_PREFIX="${XDG_DATA_HOME:-$HOME/.local/share}/devbox"
+	DVB_BIN="$HOME/.local/bin"
+}
+paths_refresh
 
 env_init() {
 	mkdir -p "$DVB_ENV_DIR" "$DVB_BIN" "$DVB_PREFIX"
@@ -37,6 +42,18 @@ env_add() {
 # shell, so without this a tool devbox installed a moment ago looks missing.
 load_env() {
 	[ -f "$DVB_ENV_FILE" ] || return 0
+
+	# A bash-only snippet in env.sh is a syntax error under dash, and dash
+	# answers a syntax error in a sourced file by killing the shell outright
+	# rather than returning non-zero. The `|| true` below cannot catch that,
+	# and probes and installs run inside subshells that would die with it,
+	# reporting every module as missing. So prove the file is survivable in a
+	# throwaway child first; the trailing `:` keeps a merely non-zero exit
+	# from being mistaken for a fatal one.
+	if ! (. "$DVB_ENV_FILE" >/dev/null 2>&1; :); then
+		return 0
+	fi
+
 	# shellcheck source=/dev/null
 	. "$DVB_ENV_FILE" >/dev/null 2>&1 || true
 }

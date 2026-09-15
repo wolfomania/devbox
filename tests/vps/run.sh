@@ -6,6 +6,7 @@
 #   ./tests/vps/run.sh --scenario minimal
 #   ./tests/vps/run.sh --source github --ref main   test the curl | sh bootstrap
 #   ./tests/vps/run.sh --keep                   leave the box up for debugging
+#   ./tests/vps/run.sh --bare --ttl 120         a clean box, nothing installed
 #
 # Credentials come from the instance profile on this box; nothing is read from
 # disk. The instance is reached over SSM, so it needs no key pair, no inbound
@@ -45,6 +46,8 @@ OPT_REF="main"
 OPT_REPO="wolfomania/devbox"
 OPT_TYPE="$INSTANCE_TYPE_DEFAULT"
 OPT_KEEP=0
+OPT_BARE=0
+OPT_TTL=""
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 INSTANCE_ID=""
@@ -78,6 +81,10 @@ parse_args() {
 			--repo)     OPT_REPO="${2:-}"; shift ;;
 			--instance-type) OPT_TYPE="${2:-}"; shift ;;
 			--keep)     OPT_KEEP=1 ;;
+			# A clean box and nothing else: launch, wait for SSM, hand it
+			# over. Nothing is installed and nothing is terminated.
+			--bare)     OPT_BARE=1; OPT_KEEP=1 ;;
+			--ttl)      OPT_TTL="${2:-}"; shift ;;
 			-h|--help)  usage ;;
 			*) die "unknown option: $1  (try --help)" ;;
 		esac
@@ -88,6 +95,13 @@ parse_args() {
 		local|github) ;;
 		*) die "--source must be local or github" ;;
 	esac
+
+	if [ -n "$OPT_TTL" ]; then
+		case "$OPT_TTL" in
+			''|*[!0-9]*) die "--ttl takes whole minutes" ;;
+		esac
+		DEADMAN_MINUTES="$OPT_TTL"
+	fi
 }
 
 # --- preflight -------------------------------------------------------------
@@ -172,7 +186,7 @@ cat > /etc/motd <<'BANNER'
   *  DISPOSABLE devbox TEST INSTANCE                                 *
   *                                                                  *
   *  Created by tests/vps/run.sh. It is terminated as soon as that   *
-  *  run finishes, and self-terminates 45 minutes after boot.        *
+  *  run finishes, and self-terminates DEADMAN minutes after boot.   *
   *                                                                  *
   *  Do not do real work here, and do not run devbox by hand while   *
   *  a test is in flight: your commands will race the harness and    *
@@ -185,7 +199,7 @@ chmod -x /etc/update-motd.d/00-devbox-test-banner 2>/dev/null || true
 shutdown -h +DEADMAN
 CLOUDINIT
 	)"
-	user_data="$(printf '%s' "$user_data" | sed "s/+DEADMAN/+$DEADMAN_MINUTES/")"
+	user_data="$(printf '%s' "$user_data" | sed "s/DEADMAN/$DEADMAN_MINUTES/g")"
 
 	INSTANCE_ID="$(aws ec2 run-instances \
 		--image-id "$ami" \
@@ -341,6 +355,16 @@ main() {
 	started="$(date +%s)"
 	launch
 	wait_for_ssm
+
+	if [ "$OPT_BARE" -eq 1 ]; then
+		printf '\n'
+		ok "clean box ready, nothing installed"
+		printf '  connect:      aws ssm start-session --target %s\n' "$INSTANCE_ID"
+		printf '  become ubuntu: sudo -iu ubuntu\n'
+		printf '  terminate:    aws ec2 terminate-instances --instance-ids %s\n' "$INSTANCE_ID"
+		printf '  self-destructs in %s minutes\n' "$DEADMAN_MINUTES"
+		exit 0
+	fi
 
 	status=0
 	if [ "$OPT_SOURCE" = "local" ]; then

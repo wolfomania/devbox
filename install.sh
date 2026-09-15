@@ -1,7 +1,7 @@
 #!/bin/sh
 # devbox - one command to provision a development box.
 #
-#   curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sudo sh
 #   ./install.sh                     interactive
 #   ./install.sh --list              show what is installed and what is missing
 #   ./install.sh --yes               install the default selection, no prompts
@@ -148,6 +148,39 @@ parse_args() {
 	done
 }
 
+# --- the account being provisioned -----------------------------------------
+
+# Under `| sudo sh` everything runs as root, so HOME is /root and every
+# per-user tool would land there, invisible to the person who asked for it.
+# Point HOME at the invoking account instead. env_hand_back returns ownership
+# once the install is done.
+adopt_invoking_user() {
+	DVB_USER="$(id -un)"
+	[ -n "${SUDO_USER:-}" ] || return 0
+	[ "$SUDO_USER" != "root" ] || return 0
+
+	user_home="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)"
+	[ -n "$user_home" ] && [ -d "$user_home" ] || return 0
+
+	DVB_USER="$SUDO_USER"
+	HOME="$user_home"
+	export HOME
+	paths_refresh
+	detect_disk
+}
+
+# Root created these on someone else's behalf; hand them over.
+env_hand_back() {
+	[ "$(id -u)" -eq 0 ] || return 0
+	[ -n "${DVB_USER:-}" ] && [ "$DVB_USER" != "root" ] || return 0
+
+	for path in "$DVB_ENV_DIR" "$DVB_BIN" "$DVB_PREFIX" \
+		"$HOME/.nvm" "$HOME/.cargo" "$HOME/.rustup" "$HOME/.local"; do
+		[ -e "$path" ] || continue
+		chown -R "$DVB_USER" "$path" 2>/dev/null || true
+	done
+}
+
 # --- python ----------------------------------------------------------------
 
 require_python() {
@@ -276,7 +309,7 @@ select_interactive() {
 		--state "$STATE_FILE" \
 		--out "$SELECT_FILE" \
 		--machine "$machine" \
-		--can-root "$DVB_CAN_ROOT" || return 1
+		--can-root "$DVB_CAN_ROOT"
 }
 
 reorder_selection() {
@@ -341,6 +374,7 @@ install_selection() {
 	fi
 
 	env_link_profiles
+	env_hand_back
 
 	log_head "Done"
 	printf '  %d module(s) installed\n' "$installed"
@@ -386,12 +420,81 @@ report_capabilities() {
 
 # --- main ------------------------------------------------------------------
 
+probe_report() {
+	log_step "Checking what is already installed"
+	probe_all "$STATE_FILE"
+	installed_count="$(awk -F'\t' '$2 == "installed"' "$STATE_FILE" | wc -l | tr -d ' ')"
+	total_count="$(wc -l < "$STATE_FILE" | tr -d ' ')"
+	log_dim "  $installed_count of $total_count modules already present"
+}
+
+run_selection() {
+	if [ -n "$OPT_SAVE_PROFILE" ]; then
+		cp "$SELECT_FILE" "$OPT_SAVE_PROFILE"
+		log_ok "selection saved to $OPT_SAVE_PROFILE"
+	fi
+
+	log_head "Installing"
+	# Print the name the selection screen showed, not the internal id.
+	while read -r id; do
+		[ -n "$id" ] || continue
+		printf '  %s\n' "$(manifest_query field "$id" name)"
+	done < "$SELECT_FILE"
+
+	if [ "$OPT_DRY_RUN" -eq 0 ]; then
+		offer_swap
+		env_init
+	fi
+	install_selection
+}
+
+# Wait for the user before painting over the install log with the menu again.
+pause_for_menu() {
+	printf '\n%s  press enter for the selection screen, q to quit: %s' "$C_DIM" "$C_RESET"
+	read -r answer || return 1
+	case "$answer" in
+		q | Q | quit | exit) return 1 ;;
+	esac
+	return 0
+}
+
+# The selection screen is the home base. It opens, hands control to the
+# installer, and comes back with refreshed state when that finishes, however
+# that went. Only q or escape leaves.
+interactive_loop() {
+	while true; do
+		probe_report
+		select_interactive
+		case $? in
+			0) ;;
+			2)
+				log_head "Nothing installed"
+				return 0
+				;;
+			*) die "the selection screen failed" ;;
+		esac
+
+		if [ -s "$SELECT_FILE" ]; then
+			run_selection || true
+		else
+			log_head "Nothing to do"
+			log_dim "  everything ticked is already installed"
+		fi
+
+		pause_for_menu || return 0
+	done
+}
+
 main() {
 	parse_args "$@"
 
 	detect_all
+	adopt_invoking_user
 	require_python
 	detect_report
+	if [ "$DVB_USER" != "$(id -un)" ]; then
+		printf '  %-12s %s (%s)\n' "installing for" "$DVB_USER" "$HOME"
+	fi
 	report_capabilities
 
 	tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/devbox.XXXXXX")"
@@ -399,42 +502,25 @@ main() {
 	STATE_FILE="$tmp_dir/state.tsv"
 	SELECT_FILE="$tmp_dir/select.txt"
 
-	log_step "Checking what is already installed"
-	probe_all "$STATE_FILE"
-	installed_count="$(awk -F'\t' '$2 == "installed"' "$STATE_FILE" | wc -l | tr -d ' ')"
-	total_count="$(wc -l < "$STATE_FILE" | tr -d ' ')"
-	log_dim "  $installed_count of $total_count modules already present"
-
 	if [ "$OPT_LIST" -eq 1 ]; then
+		probe_report
 		print_list
 		exit 0
 	fi
 
 	if [ "$OPT_YES" -eq 1 ] || [ -n "$OPT_PROFILE" ] || [ ! -t 0 ]; then
+		probe_report
 		select_headless
-	else
-		select_interactive || die "cancelled"
+		if [ ! -s "$SELECT_FILE" ]; then
+			log_head "Nothing to do"
+			log_dim "  everything selected is already installed"
+			exit 0
+		fi
+		run_selection
+		exit $?
 	fi
 
-	if [ ! -s "$SELECT_FILE" ]; then
-		log_head "Nothing to do"
-		log_dim "  everything selected is already installed"
-		exit 0
-	fi
-
-	if [ -n "$OPT_SAVE_PROFILE" ]; then
-		cp "$SELECT_FILE" "$OPT_SAVE_PROFILE"
-		log_ok "selection saved to $OPT_SAVE_PROFILE"
-	fi
-
-	log_head "Installing"
-	awk '{printf "  %s\n", $0}' "$SELECT_FILE"
-
-	if [ "$OPT_DRY_RUN" -eq 0 ]; then
-		offer_swap
-		env_init
-	fi
-	install_selection
+	interactive_loop
 }
 
 main "$@"
