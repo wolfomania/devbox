@@ -42,12 +42,12 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 |---|---|---|---|---|
 | Core | `base` | required | yes | gcc, make, curl, wget, unzip, ca-certificates |
 | Core | `git` | required | yes | Git |
-| Core | `gh` | default | yes | GitHub CLI |
-| Core | `cli` | default | yes | ripgrep, jq, fzf, tmux, htop, tree |
-| Languages | `python` | default | no | uv |
-| Languages | `node` | default | no | nvm, Node.js |
-| Languages | `go` | default | no | Go |
-| Languages | `rust` | default | no | rustup, Cargo, Clippy, rustfmt |
+| Core | `gh` | optional | yes | GitHub CLI |
+| Core | `cli` | optional | yes | ripgrep, jq, fzf, tmux, htop, tree |
+| Languages | `python` | optional | no | uv |
+| Languages | `node` | optional | no | nvm, Node.js |
+| Languages | `go` | optional | no | Go |
+| Languages | `rust` | optional | no | rustup, Cargo, Clippy, rustfmt |
 | Languages | `java` | optional | yes | OpenJDK |
 | Languages | `ruby` | optional | yes | Ruby, gem, rake, Bundler |
 | Tools | `editors` | optional | yes | Neovim |
@@ -57,7 +57,9 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | AI agents | `codex` | optional | no | Codex CLI; requires `node` |
 | Documents | `latex` | optional | yes | TeX Live, latexmk |
 
-Versions and dependencies are defined in [`manifests/`](manifests).
+Only the required modules are ticked when the screen opens. Space ticks
+the rest. Versions and dependencies are defined in
+[`manifests/`](manifests).
 
 ## Options
 

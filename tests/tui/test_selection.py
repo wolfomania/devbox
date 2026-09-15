@@ -16,7 +16,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import drive
 
 
-DEFAULTS = ["base", "git", "gh", "cli", "python", "node", "go", "rust"]
+# What the screen ticks on a box where nothing is installed yet: the build
+# essentials and nothing else. Everything else is one keypress away, and
+# deselecting seven rows every time was the cost of the old default.
+DEFAULTS = ["base", "git"]
 
 
 class SelectionScreenTest(unittest.TestCase):
@@ -32,7 +35,8 @@ class SelectionScreenTest(unittest.TestCase):
         self.assertEqual(result.selection, DEFAULTS)
 
     def test_a_module_already_installed_is_left_out(self):
-        result = drive.run(["ENTER", "y"], state=self.state_with(["go", "rust"]))
+        """Even ticked explicitly: `a` selects everything the box can take."""
+        result = drive.run(["a", "ENTER", "y"], state=self.state_with(["go", "rust"]))
         self.assertTrue(result.confirmed)
         self.assertNotIn("go", result.selection)
         self.assertNotIn("rust", result.selection)
@@ -67,10 +71,10 @@ class SelectionScreenTest(unittest.TestCase):
 
     def test_page_up_moves_back_toward_the_top(self):
         """From the last module, one page up runs out of list and stops on the
-        first, so the cursor is two rows above GitHub CLI again."""
-        result = drive.run(["END", "PGUP", "DOWN", "DOWN", "SPACE", "ENTER", "y"])
+        first, so the cursor can walk back down to a row near the top."""
+        result = drive.run(["END", "PGUP"] + drive.steps_to("gh") + ["SPACE", "ENTER", "y"])
         self.assertTrue(result.confirmed)
-        self.assertNotIn("gh", result.selection)
+        self.assertIn("gh", result.selection)
         self.assertNotIn("latex", result.selection)
 
     def test_the_screen_says_how_many_modules_are_out_of_view(self):
@@ -93,7 +97,8 @@ class SelectionScreenTest(unittest.TestCase):
     # -- toggling -----------------------------------------------------------
 
     def test_space_turns_a_selected_module_off(self):
-        result = drive.run(drive.steps_to("go") + ["SPACE", "ENTER", "y"])
+        """Twice on the same row leaves it as it was found: off."""
+        result = drive.run(drive.steps_to("go") + ["SPACE", "SPACE", "ENTER", "y"])
         self.assertTrue(result.confirmed)
         self.assertNotIn("go", result.selection)
 
