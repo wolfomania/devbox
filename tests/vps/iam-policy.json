@@ -1,0 +1,53 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "LaunchTaggedSmallInstances",
+      "Effect": "Allow", "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:eu-central-1:*:instance/*",
+      "Condition": {
+        "StringEquals": { "aws:RequestTag/Project": "devbox-test" },
+        "ForAnyValue:StringEquals": {
+          "ec2:InstanceType": ["t3.micro", "t3.small", "t3.medium"] } } },
+
+    { "Sid": "LaunchSupportingResources",
+      "Effect": "Allow", "Action": "ec2:RunInstances",
+      "Resource": ["arn:aws:ec2:eu-central-1::image/ami-*",
+                   "arn:aws:ec2:eu-central-1:*:subnet/*",
+                   "arn:aws:ec2:eu-central-1:*:security-group/*",
+                   "arn:aws:ec2:eu-central-1:*:network-interface/*"] },
+
+    { "Sid": "LaunchBoundedVolume",
+      "Effect": "Allow", "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:eu-central-1:*:volume/*",
+      "Condition": { "NumericLessThanEquals": { "ec2:VolumeSize": "40" } } },
+
+    { "Sid": "TagOnCreate", "Effect": "Allow", "Action": "ec2:CreateTags",
+      "Resource": "arn:aws:ec2:eu-central-1:*:*/*",
+      "Condition": { "StringEquals": { "ec2:CreateAction": "RunInstances" } } },
+
+    { "Sid": "TerminateOnlyOwnInstances",
+      "Effect": "Allow", "Action": ["ec2:TerminateInstances", "ec2:StopInstances"],
+      "Resource": "arn:aws:ec2:eu-central-1:*:instance/*",
+      "Condition": { "StringEquals": { "ec2:ResourceTag/Project": "devbox-test" } } },
+
+    { "Sid": "ReadOnlyDescribes", "Effect": "Allow",
+      "Action": ["ec2:DescribeInstances", "ec2:DescribeInstanceStatus",
+                 "ec2:DescribeImages", "ec2:DescribeSubnets",
+                 "ec2:DescribeSecurityGroups", "ec2:GetConsoleOutput"],
+      "Resource": "*" },
+
+    { "Sid": "ResolveUbuntuAmiAlias", "Effect": "Allow",
+      "Action": "ssm:GetParameter",
+      "Resource": "arn:aws:ssm:eu-central-1::parameter/aws/service/canonical/*" },
+
+    { "Sid": "DriveTheBoxOverSsm", "Effect": "Allow",
+      "Action": ["ssm:SendCommand", "ssm:GetCommandInvocation",
+                 "ssm:ListCommandInvocations", "ssm:DescribeInstanceInformation",
+                 "ssm:StartSession", "ssm:TerminateSession"],
+      "Resource": "*" },
+
+    { "Sid": "PassOnlyTheTargetRole", "Effect": "Allow", "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::*:role/devbox-test-target",
+      "Condition": { "StringEquals": { "iam:PassedToService": "ec2.amazonaws.com" } } }
+  ]
+}
