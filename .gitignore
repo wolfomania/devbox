@@ -34,3 +34,6 @@ __pycache__/
 # Locally saved selections
 profiles/*.conf
 !profiles/example.conf
+
+# Local notes, not published
+docs/
