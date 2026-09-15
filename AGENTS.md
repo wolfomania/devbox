@@ -4,9 +4,13 @@ Several agents may be working in this directory at the same time.
 
 ## Worktrees
 
+Every request follows the same workflow: new worktree -> work -> rebase -> delete worktree.
+
 - Do your work in your own git worktree, never in the shared checkout.
 - Commit and push from that worktree.
-- Bring work back to `main` by rebasing, not merging.
+- Once the request is implemented, bring work back to `main` by rebasing, not merging.
+- Push the changes.
+- Remove the worktree.
 - Leave the shared checkout on `main` and clean.
 
 ```sh
