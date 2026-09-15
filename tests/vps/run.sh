@@ -7,6 +7,8 @@
 #   ./tests/vps/run.sh --source github --ref main   test the curl | sh bootstrap
 #   ./tests/vps/run.sh --keep                   leave the box up for debugging
 #   ./tests/vps/run.sh --bare --ttl 120         a clean box, nothing installed
+#   ./tests/vps/run.sh --modules                one module at a time, all of them
+#   ./tests/vps/run.sh --modules docker,latex   only these
 #
 # Credentials come from the instance profile on this box; nothing is read from
 # disk. The instance is reached over SSM, so it needs no key pair, no inbound
@@ -48,6 +50,7 @@ OPT_TYPE="$INSTANCE_TYPE_DEFAULT"
 OPT_KEEP=0
 OPT_BARE=0
 OPT_TTL=""
+OPT_MODULES=""
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 INSTANCE_ID=""
@@ -85,6 +88,17 @@ parse_args() {
 			# over. Nothing is installed and nothing is terminated.
 			--bare)     OPT_BARE=1; OPT_KEEP=1 ;;
 			--ttl)      OPT_TTL="${2:-}"; shift ;;
+			# Install modules one at a time rather than running install.sh.
+			# The argument is optional: with none, every module in the
+			# manifest. This is the tier for the modules a container cannot
+			# hold, docker above all.
+			--modules)
+				OPT_MODULES="all"
+				case "${2:-}" in
+					-*|"") ;;
+					*) OPT_MODULES="$2"; shift ;;
+				esac
+				;;
 			-h|--help)  usage ;;
 			*) die "unknown option: $1  (try --help)" ;;
 		esac
@@ -296,7 +310,7 @@ PYEOF
 
 push_source() {
 	say "Shipping the working tree"
-	payload="$(tar --exclude=.git --exclude=tests -czf - -C "$ROOT_DIR" . | base64 -w0)"
+	payload="$(tar --exclude=.git -czf - -C "$ROOT_DIR" . | base64 -w0)"
 	dim "$(printf '%s' "$payload" | wc -c) bytes of base64"
 
 	remote_sh "push-source" <<REMOTE
@@ -325,6 +339,43 @@ set -eu
 runuser -l '$SCENARIO_USER' -c "cd /opt/devbox-src && ./install.sh $SCENARIO_FLAGS"
 REMOTE
 	fi
+}
+
+# Install every module on its own, in manifest order, and report each one.
+#
+# Running them one at a time on one box is not the same isolation a container
+# gives, but it is the only way to reach the modules a container cannot hold,
+# and a module that only works because an earlier one happened to leave
+# something behind shows up here as a check that passed before its install.
+run_modules() {
+	say "Installing modules one at a time (as root)"
+	wanted="$OPT_MODULES"
+	[ "$wanted" != "all" ] || wanted=""
+
+	remote_sh "modules" <<REMOTE
+set -u
+cd /opt/devbox-src
+export DVB_TEST_DISPOSABLE=1
+wanted='$(printf '%s' "$wanted" | tr ',' ' ')'
+[ -n "\$wanted" ] || wanted="\$(DVB_MANIFEST=manifests python3 tui/manifest.py ids | tr '\n' ' ')"
+
+failed=""
+for id in \$wanted; do
+	printf '\n--- %s\n' "\$id"
+	if sh tests/module-case.sh "\$id"; then
+		:
+	else
+		failed="\$failed \$id"
+	fi
+done
+
+printf '\n'
+if [ -n "\$failed" ]; then
+	printf 'modules failed:%s\n' "\$failed"
+	exit 1
+fi
+printf 'every module installed and reported its own version\n'
+REMOTE
 }
 
 verify() {
@@ -370,15 +421,23 @@ main() {
 	if [ "$OPT_SOURCE" = "local" ]; then
 		push_source || status=1
 	fi
-	[ "$status" -eq 0 ] && { install_devbox || status=1; }
-	[ "$status" -eq 0 ] && { verify || status=1; }
+
+	if [ -n "$OPT_MODULES" ]; then
+		[ "$OPT_SOURCE" = "local" ] || die "--modules needs the working tree; drop --source github"
+		[ "$status" -eq 0 ] && { run_modules || status=1; }
+	else
+		[ "$status" -eq 0 ] && { install_devbox || status=1; }
+		[ "$status" -eq 0 ] && { verify || status=1; }
+	fi
 
 	elapsed=$(( $(date +%s) - started ))
 	printf '\n'
+	label="scenario '$OPT_SCENARIO'"
+	[ -z "$OPT_MODULES" ] || label="per-module run"
 	if [ "$status" -eq 0 ]; then
-		ok "scenario '$OPT_SCENARIO' passed in ${elapsed}s"
+		ok "$label passed in ${elapsed}s"
 	else
-		err "scenario '$OPT_SCENARIO' failed after ${elapsed}s"
+		err "$label failed after ${elapsed}s"
 	fi
 	exit "$status"
 }

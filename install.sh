@@ -207,7 +207,9 @@ manifest_query() {
 # sourced, so a module's helpers and variables can never leak into this script
 # or into the next module.
 probe_one() {
-	"$DVB_ROOT/$1" check 2>/dev/null
+	# stdin here is the pipe probe_all is reading the module list from, and a
+	# check that read a line of it would silently eat the next module.
+	"$DVB_ROOT/$1" check < /dev/null 2>/dev/null
 }
 
 # Writes "id<TAB>status<TAB>version" for every module in the manifest.
@@ -335,7 +337,10 @@ install_one() {
 
 	# The pin comes from the manifest row read above. A module run by hand
 	# with no MOD_PIN looks it up in the manifest itself.
-	if MOD_PIN="$pin" MOD_PIN_EXTRA="$pin_extra" "$DVB_ROOT/$script" install; then
+	# Same reason as in probe_one: stdin is the selection file this loop is
+	# reading. sudo still gets its password prompt, which it takes from the
+	# terminal rather than from stdin.
+	if MOD_PIN="$pin" MOD_PIN_EXTRA="$pin_extra" "$DVB_ROOT/$script" install < /dev/null; then
 		version="$(probe_one "$script" || true)"
 		log_ok "${name}${version:+ - $version}"
 		return 0
