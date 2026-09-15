@@ -1,0 +1,81 @@
+# Languages
+#
+# Language runtimes and their toolchains.
+
+[manifest]
+category = "languages"
+title = "Languages"
+order = 20
+
+[[module]]
+id = "python"
+name = "Python"
+summary = "uv, the resolver and version manager; installs to ~/.local/bin"
+script = "modules/lang/python.sh"
+default = true
+required = false
+needs_root = false
+pin = "0.11.26"
+pin_kind = "script"
+size_mb = 50
+
+[[module]]
+id = "node"
+name = "Node.js"
+summary = "nvm plus a pinned node release; installs to ~/.nvm"
+script = "modules/lang/node.sh"
+default = true
+required = false
+needs_root = false
+pin = "24.18.0"
+pin_kind = "nvm"
+pin_extra = "0.40.1"  # nvm itself
+size_mb = 120
+
+[[module]]
+id = "go"
+name = "Go"
+summary = "official tarball, unpacked under ~/.local/share/devbox"
+script = "modules/lang/go.sh"
+default = true
+required = false
+needs_root = false
+pin = "1.26.4"
+pin_kind = "tarball"
+size_mb = 260
+
+[[module]]
+id = "rust"
+name = "Rust"
+summary = "rustup with the stable toolchain, cargo, clippy, rustfmt"
+script = "modules/lang/rust.sh"
+default = true
+required = false
+needs_root = false
+pin = "1.96.1"
+pin_kind = "rustup"
+size_mb = 900
+
+[[module]]
+id = "java"
+name = "Java"
+summary = "OpenJDK headless JDK"
+script = "modules/lang/java.sh"
+default = false
+required = false
+needs_root = true
+pin = "21"
+pin_kind = "apt"
+size_mb = 320
+
+[[module]]
+id = "ruby"
+name = "Ruby"
+summary = "ruby, gem, rake, bundler"
+script = "modules/lang/ruby.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 90

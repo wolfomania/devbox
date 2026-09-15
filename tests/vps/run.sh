@@ -159,9 +159,33 @@ launch() {
 	dim "ami     $ami"
 	dim "subnet  $subnet"
 
-	# The only thing user-data does is arm the dead-man's switch. The test
-	# itself runs over SSM so that its output is visible and attributable.
-	user_data="$(printf '#!/bin/sh\nshutdown -h +%s\n' "$DEADMAN_MINUTES")"
+	# user-data arms the dead-man's switch and warns anyone who logs in. The
+	# test itself runs over SSM so that its output is visible and attributable.
+	# The banner matters: this box can be terminated at any moment by the
+	# harness that created it, and without it an interactive session just
+	# freezes mid-command with no explanation.
+	user_data="$(cat <<'CLOUDINIT'
+#!/bin/sh
+cat > /etc/motd <<'BANNER'
+
+  ********************************************************************
+  *  DISPOSABLE devbox TEST INSTANCE                                 *
+  *                                                                  *
+  *  Created by tests/vps/run.sh. It is terminated as soon as that   *
+  *  run finishes, and self-terminates 45 minutes after boot.        *
+  *                                                                  *
+  *  Do not do real work here, and do not run devbox by hand while   *
+  *  a test is in flight: your commands will race the harness and    *
+  *  the machine can vanish underneath you.                          *
+  ********************************************************************
+
+BANNER
+cp /etc/motd /etc/update-motd.d/00-devbox-test-banner 2>/dev/null || true
+chmod -x /etc/update-motd.d/00-devbox-test-banner 2>/dev/null || true
+shutdown -h +DEADMAN
+CLOUDINIT
+	)"
+	user_data="$(printf '%s' "$user_data" | sed "s/+DEADMAN/+$DEADMAN_MINUTES/")"
 
 	INSTANCE_ID="$(aws ec2 run-instances \
 		--image-id "$ami" \

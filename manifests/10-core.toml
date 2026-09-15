@@ -1,0 +1,56 @@
+# Core
+#
+# The baseline every box gets.
+
+[manifest]
+category = "core"
+title = "Core"
+order = 10
+
+[[module]]
+id = "base"
+name = "Build essentials"
+summary = "gcc, make, curl, wget, unzip, ca-certificates"
+script = "modules/core/base.sh"
+default = true
+required = true
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 210
+
+[[module]]
+id = "git"
+name = "Git"
+summary = "version control, plus a sane global config"
+script = "modules/core/git.sh"
+default = true
+required = true
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 30
+
+[[module]]
+id = "gh"
+name = "GitHub CLI"
+summary = "gh, from the official cli.github.com apt repository"
+script = "modules/core/gh.sh"
+default = true
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 55
+
+[[module]]
+id = "cli"
+name = "Shell toolkit"
+summary = "ripgrep, jq, fzf, tmux, htop, tree"
+script = "modules/core/cli.sh"
+default = true
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 40

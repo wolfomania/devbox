@@ -38,29 +38,32 @@ Set `DVB_REPO` or `DVB_REF` to bootstrap from a fork or a branch.
 - Detects OS, architecture, package manager, RAM, free disk and whether root is available.
 - Probes every module and reports the installed version. Anything already present is skipped.
 - Installs under `$HOME` wherever possible; root is used only for system packages.
-- Pins every version in [`manifest.toml`](manifest.toml).
+- Pins every version in [`manifests/`](manifests).
 - Writes PATH changes to one file, `~/.config/devbox/env.sh`, sourced from your shell profile.
 
 ## Modules
 
-| Module | Category | Default | Root | Installs |
+The catalogue is split across `manifests/`, one file per category, read in
+filename order. The numeric prefix sets where the category appears on screen.
+
+| File | Module | Default | Root | Installs |
 |---|---|---|---|---|
-| `base` | core | yes | yes | gcc, make, curl, wget, unzip |
-| `git` | core | yes | yes | git |
-| `gh` | core | yes | yes | GitHub CLI, from cli.github.com |
-| `cli` | core | yes | yes | ripgrep, jq, fzf, tmux, htop, tree |
-| `python` | languages | yes | no | uv |
-| `node` | languages | yes | no | nvm, node |
-| `go` | languages | yes | no | Go, from the official tarball |
-| `rust` | languages | yes | no | rustup, cargo, clippy, rustfmt |
-| `java` | languages | no | yes | OpenJDK headless |
-| `ruby` | languages | no | yes | ruby, gem, rake |
-| `latex` | optional | no | yes | TeX Live, latexmk |
-| `docker` | optional | no | yes | docker, compose plugin |
-| `claude-code` | optional | no | no | Claude Code |
-| `codex` | optional | no | no | Codex CLI (requires `node`) |
-| `db` | optional | no | yes | psql, sqlite3 |
-| `editors` | optional | no | yes | neovim |
+| `10-core.toml` | `base` | yes | yes | gcc, make, curl, wget, unzip |
+| | `git` | yes | yes | git |
+| | `gh` | yes | yes | GitHub CLI, from cli.github.com |
+| | `cli` | yes | yes | ripgrep, jq, fzf, tmux, htop, tree |
+| `20-languages.toml` | `python` | yes | no | uv |
+| | `node` | yes | no | nvm, node |
+| | `go` | yes | no | Go, from the official tarball |
+| | `rust` | yes | no | rustup, cargo, clippy, rustfmt |
+| | `java` | no | yes | OpenJDK headless |
+| | `ruby` | no | yes | ruby, gem, rake |
+| `30-tools.toml` | `editors` | no | yes | neovim |
+| | `db` | no | yes | psql, sqlite3 |
+| `40-devops.toml` | `docker` | no | yes | docker, compose plugin |
+| `50-ai.toml` | `claude-code` | no | no | Claude Code |
+| | `codex` | no | no | Codex CLI (requires `node`) |
+| `60-docs.toml` | `latex` | no | yes | TeX Live, latexmk |
 
 ## Options
 
@@ -113,7 +116,7 @@ sudo sed -i '/^\/swapfile /d' /etc/fstab
 
 ```
 install.sh          entry point: bootstrap, detect, select, install
-manifest.toml       module catalogue and pinned versions
+manifests/          module catalogue, one .toml per category
 lib/                detection, package manager, swap, PATH handling
 modules/            one script per module, each defining dvb_check and dvb_install
 tui/                selection screen (Python stdlib curses)
@@ -123,9 +126,32 @@ profiles/           saved selections
 
 ## Adding a module
 
-1. Add a `[[module]]` block to `manifest.toml`.
+1. Add a `[[module]]` block to the manifest file for its category. The
+   `category` comes from that file's `[manifest]` block; a module only sets its
+   own to override it.
 2. Create the script it points at, defining two functions:
    - `dvb_check` — print the installed version and return 0, or return 1 if absent.
    - `dvb_install` — install it, returning non-zero on failure.
 3. Use `pkg_install` for system packages and `env_add` for PATH changes. Never
    write to a shell profile directly.
+
+Dependencies cross files freely: `requires = ["node"]` on `codex` in
+`50-ai.toml` pulls `node` from `20-languages.toml` and installs it first.
+
+## Adding a category
+
+Create `manifests/<order>-<name>.toml`:
+
+```toml
+[manifest]
+category = "security"   # id used by requires and --with
+title = "Security"      # heading on the selection screen
+order = 45              # position; ties fall back to filename order
+
+[[module]]
+id = "..."
+```
+
+Duplicate module ids are rejected across files. `DVB_MANIFEST` overrides the
+catalogue location, and still accepts a single `.toml` file instead of a
+directory.

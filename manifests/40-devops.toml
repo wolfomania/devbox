@@ -1,0 +1,20 @@
+# DevOps
+#
+# Containers, orchestration and infrastructure.
+
+[manifest]
+category = "devops"
+title = "DevOps"
+order = 40
+
+[[module]]
+id = "docker"
+name = "Docker"
+summary = "docker engine and the compose plugin"
+script = "modules/optional/docker.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 420

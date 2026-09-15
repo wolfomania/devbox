@@ -82,8 +82,8 @@ def initial_selection(catalogue, states):
 def build_rows(catalogue):
     rows = []
     for category in catalogue.categories:
-        rows.append(Row(kind="header", label=category.upper()))
-        for module in catalogue.in_category(category):
+        rows.append(Row(kind="header", label=category.title.upper()))
+        for module in catalogue.in_category(category.id):
             rows.append(Row(kind="module", label=module.name, module=module))
     return rows
 

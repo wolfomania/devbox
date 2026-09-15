@@ -1,0 +1,32 @@
+# Tools
+#
+# Editors and client tools.
+
+[manifest]
+category = "tools"
+title = "Tools"
+order = 30
+
+[[module]]
+id = "editors"
+name = "Neovim"
+summary = "neovim, with no configuration imposed"
+script = "modules/optional/editors.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 45
+
+[[module]]
+id = "db"
+name = "Database clients"
+summary = "psql and the sqlite3 CLI"
+script = "modules/optional/db.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 35

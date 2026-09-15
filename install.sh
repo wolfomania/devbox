@@ -68,7 +68,15 @@ if [ ! -r "$DVB_ROOT/lib/detect.sh" ]; then
 	boot_handover "$@"
 fi
 
-DVB_MANIFEST="${DVB_MANIFEST:-$DVB_ROOT/manifest.toml}"
+# The catalogue is a directory of *.toml files, read in filename order. A
+# single manifest.toml is still accepted, for a fork that prefers one file.
+if [ -z "${DVB_MANIFEST:-}" ]; then
+	if [ -d "$DVB_ROOT/manifests" ]; then
+		DVB_MANIFEST="$DVB_ROOT/manifests"
+	else
+		DVB_MANIFEST="$DVB_ROOT/manifest.toml"
+	fi
+fi
 export DVB_MANIFEST
 
 # shellcheck source=lib/log.sh
