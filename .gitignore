@@ -36,4 +36,4 @@ profiles/*.conf
 !profiles/example.conf
 
 # Local notes, not published
-docs/
+.docs/
