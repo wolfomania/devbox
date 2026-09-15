@@ -48,6 +48,16 @@ paths_refresh
 # file, and this process has not been through a login shell.
 load_env
 
+# Where processes in one run leave notes for each other, such as "the apt index
+# is already refreshed". install.sh provides one. A module run on its own makes
+# its own, so that a bundle installing six parts still refreshes apt once
+# rather than once per part.
+if [ -z "${DVB_RUN_DIR:-}" ]; then
+	DVB_RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/devbox-run.XXXXXX")"
+	export DVB_RUN_DIR
+	trap 'rm -rf "$DVB_RUN_DIR"' EXIT INT TERM
+fi
+
 # Path of this module relative to the repository root, which is how the
 # manifest names it.
 dvb_module_path() {
