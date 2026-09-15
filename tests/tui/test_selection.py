@@ -77,11 +77,30 @@ class SelectionScreenTest(unittest.TestCase):
         result = drive.run(["ENTER"])
         self.assertIn("more", result.screen)
 
+    # -- what the screen says -----------------------------------------------
+
+    def test_every_module_row_is_drawn_as_a_checkbox(self):
+        """The screen is a checklist, and it has to look like one: people who
+        read the cursor as the selection press Enter on the wrong row."""
+        result = drive.run(["q"])
+        self.assertIn("[x]", result.screen)
+        self.assertIn("[ ]", result.screen)
+
+    def test_the_footer_says_how_many_ticked_rows_enter_installs(self):
+        result = drive.run(["q"])
+        self.assertIn("enter installs the %d ticked" % len(DEFAULTS), result.screen)
+
     # -- toggling -----------------------------------------------------------
 
     def test_space_turns_a_selected_module_off(self):
         result = drive.run(drive.steps_to("go") + ["SPACE", "ENTER"])
         self.assertTrue(result.confirmed)
+        self.assertNotIn("go", result.selection)
+
+    def test_an_installed_module_cannot_be_ticked(self):
+        """A tick beside it would promise an install that never happens: the
+        install list drops anything already installed."""
+        result = drive.run(drive.steps_to("go") + ["SPACE", "ENTER"], state=self.state_with(["go"]))
         self.assertNotIn("go", result.selection)
 
     def test_a_required_module_cannot_be_turned_off(self):

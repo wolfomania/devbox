@@ -16,7 +16,11 @@ import manifest as manifest_mod
 # Layout constants, all in terminal cells.
 HEADER_LINES = 3
 FOOTER_LINES = 3
-NAME_COLUMN = 22
+CURSOR_COLUMN = 1
+MARK_COLUMN = 3
+# One cell of gutter after the checkbox.
+NAME_START = MARK_COLUMN + glyphs.MARKER_WIDTH + 1
+NAME_COLUMN = 18
 STATUS_COLUMN = 26
 MB_PER_GB = 1024
 
@@ -175,9 +179,17 @@ class Screen:
     # -- selection ----------------------------------------------------------
 
     def toggle(self, module_id):
+        """Tick or untick one module.
+
+        A module that is already installed cannot be ticked: it is filtered
+        out of the install list either way, so a tick beside it would promise
+        work that never happens.
+        """
         module = self.catalogue.by_id(module_id)
         state = self.states[module_id]
         if not state.available or module.required:
+            return
+        if state.status == manifest_mod.STATUS_INSTALLED:
             return
         if module_id in self.selected:
             self.selected.discard(module_id)
@@ -197,8 +209,17 @@ class Screen:
     def reset_defaults(self):
         self.selected = initial_selection(self.catalogue, self.states)
 
+    def pending_ids(self):
+        """The ticked modules that an install would actually act on."""
+        return [
+            module.id
+            for module in self.catalogue.modules
+            if module.id in self.selected
+            and self.states[module.id].status != manifest_mod.STATUS_INSTALLED
+        ]
+
     def pending_size(self):
-        return sum(self.catalogue.by_id(i).size_mb for i in self.selected)
+        return sum(self.catalogue.by_id(i).size_mb for i in self.pending_ids())
 
     # -- drawing ------------------------------------------------------------
 
@@ -258,15 +279,15 @@ class Screen:
         status, status_pair = self.status_text(module)
 
         if is_cursor:
-            win.addnstr(y, 1, self.glyph["cursor"], 1, curses.color_pair(PAIR_CURSOR) | curses.A_BOLD)
-        win.addnstr(y, 3, mark, 1, curses.color_pair(mark_pair) | curses.A_BOLD)
+            win.addnstr(y, CURSOR_COLUMN, self.glyph["cursor"], 1, curses.color_pair(PAIR_CURSOR) | curses.A_BOLD)
+        win.addnstr(y, MARK_COLUMN, mark, glyphs.MARKER_WIDTH, curses.color_pair(mark_pair) | curses.A_BOLD)
 
         # Every field is padded to its full width and written as literal cells,
         # so column alignment never depends on what the terminal left behind.
         name_attr = curses.A_BOLD if is_cursor else curses.A_NORMAL
-        win.addnstr(y, 5, fit(module.name, NAME_COLUMN), NAME_COLUMN, name_attr)
+        win.addnstr(y, NAME_START, fit(module.name, NAME_COLUMN), NAME_COLUMN, name_attr)
 
-        column = 5 + NAME_COLUMN
+        column = NAME_START + NAME_COLUMN
         if column < width - 2:
             limit = min(STATUS_COLUMN, width - column - 2)
             win.addnstr(y, column, fit(status, limit), limit, curses.color_pair(status_pair))
@@ -279,16 +300,22 @@ class Screen:
             win.addnstr(y, column, detail, width - column - 2, curses.color_pair(PAIR_DIM))
 
     def draw_footer(self, win, height, width):
-        pending = [i for i in self.selected if self.states[i].status != manifest_mod.STATUS_INSTALLED]
-        summary = "%d selected %s %s to download" % (
-            len(self.selected),
+        """Say what Enter will do, in the words the boxes use.
+
+        The screen is a checklist: Space ticks a row, Enter installs every
+        ticked row. People read the cursor as the selection and press Enter on
+        the row they want, so the footer names the number of ticks instead.
+        """
+        pending = self.pending_ids()
+        summary = "enter installs the %d ticked %s %s to download" % (
+            len(pending),
             self.glyph["dot"],
             human_size(self.pending_size()),
         )
         if not pending:
-            summary = "nothing selected %s everything ticked is already installed" % self.glyph["dot"]
+            summary = "nothing ticked %s space ticks the row under the cursor" % self.glyph["dot"]
 
-        keys = "up/down move  space toggle  a all  n none  d reset  enter install  q quit"
+        keys = "up/down move  space tick  a all  n none  d reset  enter install  q quit"
         win.addnstr(height - 3, 1, self.glyph["rule"] * max(0, width - 2), width - 2, curses.color_pair(PAIR_DIM))
         win.addnstr(height - 2, 1, summary, width - 2, curses.color_pair(PAIR_TITLE))
         win.addnstr(height - 1, 1, keys, width - 2, curses.color_pair(PAIR_DIM))
@@ -475,8 +502,7 @@ def main(argv):
     if not screen.confirmed:
         return 2
 
-    pending = [i for i in screen.selected if states[i].status != manifest_mod.STATUS_INSTALLED]
-    ordered = manifest_mod.resolve_order(catalogue, pending)
+    ordered = manifest_mod.resolve_order(catalogue, screen.pending_ids())
     with open(args.out, "w", encoding="utf-8") as handle:
         for module_id in ordered:
             handle.write(module_id + "\n")
