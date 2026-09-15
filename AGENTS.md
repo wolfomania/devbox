@@ -42,6 +42,7 @@ modules a container cannot hold.
 | Tier | Command | Needs | Time |
 |---|---|---|---|
 | Selection screen | `python3 tests/tui/test_selection.py` | python3 | ~15s |
+| Prompt between installs | `python3 tests/shell/test_prompt.py` | python3 | ~1s |
 | One module per container | `./tests/modules/run.sh` | docker | ~10 min |
 | One module per real box | `./tests/vps/run.sh --modules` | aws cli, an EC2 instance | ~20 min, costs money |
 | Whole-install scenarios | `./tests/vps/run.sh --scenario minimal` | aws cli, an EC2 instance | ~10 min, costs money |
@@ -71,8 +72,9 @@ or a new part needs no new test. Three modules are handled differently:
   `./tests/vps/run.sh --modules swap` covers it.
 - `latex` is 2.4 GB and is skipped unless you ask: `./tests/modules/run.sh --all`.
 
-The selection screen is driven through a real pty, because what broke it once
-was the bytes a terminal sends for an arrow key. `tests/tui/drive.py` can also
+Both screen tests are driven through a real pty, because what broke them was
+the bytes a terminal sends: an arrow key for the selection screen, and a `q`
+with no newline behind it for the prompt between installs. `tests/tui/drive.py` can also
 be used by hand:
 
 ```sh

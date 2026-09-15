@@ -164,6 +164,26 @@ parse_args() {
 	done
 }
 
+# --- the terminal ----------------------------------------------------------
+
+# stty settings as they were before devbox touched them. Saved on the first
+# raw read and restored by every exit path, so an interrupt cannot leave the
+# user with a terminal that no longer echoes.
+DVB_TTY_STATE=""
+
+tty_raw() {
+	[ -n "$DVB_TTY_STATE" ] || DVB_TTY_STATE="$(stty -g 2>/dev/null)" || return 1
+	[ -n "$DVB_TTY_STATE" ] || return 1
+	# isig is left alone, so ctrl-c still interrupts the run.
+	stty -icanon -echo min 1 time 0 2>/dev/null
+}
+
+tty_restore() {
+	[ -n "$DVB_TTY_STATE" ] || return 0
+	stty "$DVB_TTY_STATE" 2>/dev/null
+	return 0
+}
+
 # --- the account being provisioned -----------------------------------------
 
 # Under `| sudo sh` everything runs as root, so HOME is /root and every
@@ -479,13 +499,37 @@ prime_sudo() {
 }
 
 # Wait for the user before painting over the install log with the menu again.
+#
+# One keypress decides it: enter goes back to the menu, q leaves. Asking for a
+# line meant q had to be followed by enter, which is not what the prompt says
+# and not what a single-key prompt leads anyone to expect.
 pause_for_menu() {
 	printf '\n%s  press enter for the selection screen, q to quit: %s' "$C_DIM" "$C_RESET"
-	read -r answer || return 1
+	answer="$(read_one_key)" || return 1
+	printf '\n'
 	case "$answer" in
 		q | Q | quit | exit) return 1 ;;
 	esac
 	return 0
+}
+
+# Read one keypress, without waiting for enter.
+#
+# A terminal that cannot be put into raw mode - a pipe, a captured session -
+# falls back to reading a whole line, which is the old behaviour and still
+# understands both answers.
+read_one_key() {
+	if [ ! -t 0 ] || ! tty_raw; then
+		read -r line || return 1
+		printf '%s' "$line"
+		return 0
+	fi
+
+	# dd rather than read: read has no way to stop after one character, and in
+	# raw mode there is no newline coming to stop it.
+	key="$(dd bs=1 count=1 2>/dev/null)"
+	tty_restore
+	printf '%s' "$key"
 }
 
 # The selection screen is the home base. It opens, hands control to the
@@ -533,9 +577,9 @@ main() {
 	# command, so cleaning up is not enough: without an explicit exit, Ctrl-C
 	# deleted the run directory and the install loop kept going against a
 	# selection file that was no longer there.
-	trap 'rm -rf "$tmp_dir"' EXIT
-	trap 'rm -rf "$tmp_dir"; exit 130' INT
-	trap 'rm -rf "$tmp_dir"; exit 143' TERM
+	trap 'tty_restore; rm -rf "$tmp_dir"' EXIT
+	trap 'tty_restore; rm -rf "$tmp_dir"; exit 130' INT
+	trap 'tty_restore; rm -rf "$tmp_dir"; exit 143' TERM
 	# Modules are separate processes; this is where they leave the per-run
 	# notes they need to share, such as "the apt index is already refreshed".
 	DVB_RUN_DIR="$tmp_dir"
