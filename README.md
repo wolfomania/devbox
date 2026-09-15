@@ -6,12 +6,15 @@ detected and skipped.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh
 ```
 
+Run it without `sudo`. devbox escalates with sudo only for the steps that
+need root.
+
 - Arrow keys: move
-- Space: toggle
-- Enter: install
+- Space: tick the row under the cursor
+- Enter: review the ticked rows, then `y` to install
 - Esc or `q`: exit
 
 The menu reopens after each install. The one-line command downloads the
@@ -28,7 +31,7 @@ cd devbox
 Pass options through the one-line command with `sh -s --`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sudo sh -s -- --yes
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh -s -- --yes
 ```
 
 Set `DVB_REPO` and `DVB_REF` to use another repository or branch.

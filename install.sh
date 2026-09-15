@@ -439,6 +439,20 @@ report_capabilities() {
 
 # --- main ------------------------------------------------------------------
 
+# Probe, take the default selection, install it. No menu: used for --yes, for
+# a saved profile, and when there is no terminal at all.
+run_headless() {
+	probe_report
+	select_headless
+	if [ ! -s "$SELECT_FILE" ]; then
+		log_head "Nothing to do"
+		log_dim "  everything selected is already installed"
+		exit 0
+	fi
+	run_selection
+	exit $?
+}
+
 probe_report() {
 	log_step "Checking what is already installed"
 	probe_all "$STATE_FILE"
@@ -461,10 +475,31 @@ run_selection() {
 	done < "$SELECT_FILE"
 
 	if [ "$OPT_DRY_RUN" -eq 0 ]; then
+		prime_sudo
 		offer_swap
 		env_init
 	fi
 	install_selection
+}
+
+# True when a module in the selection needs root.
+selection_needs_root() {
+	while read -r id; do
+		[ -n "$id" ] || continue
+		[ "$(manifest_query field "$id" needs_root)" = "True" ] && return 0
+	done < "$SELECT_FILE"
+	return 1
+}
+
+# Ask for the sudo password once, before the first module runs, so the install
+# does not stop for a prompt in the middle of a long apt step. A no-op when we
+# are already root or sudo needs no password; modules escalate through as_root
+# either way.
+prime_sudo() {
+	[ "$DVB_PRIV" = "sudo-password" ] || return 0
+	selection_needs_root || return 0
+	log_dim "  some steps need root; caching your sudo credentials"
+	sudo -v || die "sudo authentication failed"
 }
 
 # Wait for the user before painting over the install log with the menu again.
@@ -538,16 +573,9 @@ main() {
 		exit 0
 	fi
 
+	# Asked for explicitly, or there is no terminal to open a menu on.
 	if [ "$OPT_YES" -eq 1 ] || [ -n "$OPT_PROFILE" ] || [ ! -t 0 ]; then
-		probe_report
-		select_headless
-		if [ ! -s "$SELECT_FILE" ]; then
-			log_head "Nothing to do"
-			log_dim "  everything selected is already installed"
-			exit 0
-		fi
-		run_selection
-		exit $?
+		run_headless
 	fi
 
 	interactive_loop
