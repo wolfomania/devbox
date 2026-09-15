@@ -348,9 +348,13 @@ REMOTE
 # Install every module on its own, in manifest order, and report each one.
 #
 # Running them one at a time on one box is not the same isolation a container
-# gives, but it is the only way to reach the modules a container cannot hold,
-# and a module that only works because an earlier one happened to leave
-# something behind shows up here as a check that passed before its install.
+# gives, but it is the only way to reach the modules a container cannot hold.
+#
+# Each module's own output goes to a file rather than into the reply. SSM
+# returns at most 24000 characters of stdout and apt alone writes more than
+# that, so an unfiltered loop loses the results of everything after the first
+# few modules. Only the one-line verdict comes back, plus the tail of a
+# failure.
 run_modules() {
 	say "Installing modules one at a time (as root)"
 	wanted="$OPT_MODULES"
@@ -365,12 +369,15 @@ wanted='$(printf '%s' "$wanted" | tr ',' ' ')'
 
 failed=""
 for id in \$wanted; do
-	printf '\n--- %s\n' "\$id"
-	if sh tests/module-case.sh "\$id"; then
-		:
+	log="/tmp/devbox-module-\$id.log"
+	if sh tests/module-case.sh "\$id" > "\$log" 2>&1; then
+		printf 'ok    %-14s %s\n' "\$id" "\$(sed -n 's/^TEST-OK //p' "\$log" | tail -1)"
 	else
 		failed="\$failed \$id"
+		printf 'FAIL  %-14s %s\n' "\$id" "\$(sed -n 's/^TEST-FAIL //p' "\$log" | tail -1)"
+		tail -15 "\$log" | sed 's/^/        /'
 	fi
+	sed -n 's/^TEST-NOTE /      note: /p' "\$log"
 done
 
 printf '\n'

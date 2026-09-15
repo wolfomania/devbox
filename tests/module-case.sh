@@ -6,9 +6,13 @@
 #
 # Three questions, in this order:
 #
-#   check    must fail. A check that reports a tool as present on a machine
-#            that does not have it is how a run ends up installing nothing and
-#            announcing that everything is already there.
+#   check    must fail, on a machine that has never had the tool. A check that
+#            reports a tool as present when it is not is how a run ends up
+#            installing nothing and announcing that everything is already
+#            there. Only a container built for this test is known to be that
+#            clean, so the runner says so with DVB_TEST_PRISTINE=1; a real box
+#            may legitimately have the tool already, and the Ubuntu AMI ships
+#            with git, so there the same result is only worth a note.
 #   install  must succeed.
 #   check    must now succeed, and print a version.
 #
@@ -77,7 +81,12 @@ main() {
 	done
 
 	if "./$script" check > /dev/null 2>&1; then
-		fail "check reported $TARGET as installed before it was installed"
+		case "${DVB_TEST_PRISTINE:-0}" in
+			1 | y | yes | true)
+				fail "check reported $TARGET as installed before it was installed"
+				;;
+		esac
+		printf 'TEST-NOTE %s was already on this machine\n' "$TARGET"
 	fi
 
 	"./$script" install || fail "install failed"

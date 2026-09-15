@@ -149,7 +149,9 @@ test_module() {
 	printf '  %-14s ' "$id"
 
 	container="devbox-test-$id-$$"
-	if $DOCKER run --name "$container" "$image" \
+	# This image was built for this test and has never had the tool, so a
+	# check that passes before the install is a check that lies.
+	if $DOCKER run --name "$container" -e DVB_TEST_PRISTINE=1 "$image" \
 		sh tests/module-case.sh "$id" > "$log_file" 2>&1; then
 		outcome=0
 	else
