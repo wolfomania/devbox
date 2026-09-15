@@ -1,6 +1,9 @@
 #!/bin/sh
 # Node through nvm, so the version is swappable later without root.
 # MOD_PIN is the node version; MOD_PIN_EXTRA is the nvm version.
+#
+#   modules/lang/node.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 NVM_DIR_PATH="$HOME/.nvm"
 
@@ -32,3 +35,5 @@ dvb_install() {
 	env_add '[ -n "${BASH_VERSION:-}${ZSH_VERSION:-}" ] && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true'
 	[ -x "$NVM_DIR_PATH/versions/node/v${MOD_PIN}/bin/node" ]
 }
+
+dvb_main "$@"

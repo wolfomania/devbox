@@ -1,6 +1,9 @@
 #!/bin/sh
 # Distro Docker plus the compose plugin. Adds the invoking user to the docker
 # group, which takes effect on their next login.
+#
+#   modules/optional/docker.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 DOCKER_PACKAGES="docker.io docker-compose-v2"
 
@@ -19,3 +22,5 @@ dvb_install() {
 		log_warn "added $target_user to the docker group; log out and back in for it to apply"
 	fi
 }
+
+dvb_main "$@"

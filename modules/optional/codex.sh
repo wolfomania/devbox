@@ -1,5 +1,8 @@
 #!/bin/sh
 # Codex CLI from npm. Depends on the node module, which the runner installs first.
+#
+#   modules/optional/codex.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 dvb_check() {
 	command -v codex >/dev/null 2>&1 || return 1
@@ -21,3 +24,5 @@ dvb_install() {
 	log_dim "  npm install -g @openai/codex"
 	npm install -g @openai/codex >/dev/null 2>&1
 }
+
+dvb_main "$@"

@@ -1,5 +1,8 @@
 #!/bin/sh
 # Compiler toolchain and the fetch/extract utilities every other module needs.
+#
+#   modules/core/base.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 BASE_PACKAGES="build-essential curl wget ca-certificates unzip xz-utils"
 
@@ -14,3 +17,5 @@ dvb_install() {
 	# shellcheck disable=SC2086
 	pkg_install $BASE_PACKAGES
 }
+
+dvb_main "$@"

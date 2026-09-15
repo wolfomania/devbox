@@ -13,6 +13,7 @@
 set -u
 
 DVB_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+export DVB_ROOT
 
 # --- bootstrap -------------------------------------------------------------
 #
@@ -202,15 +203,11 @@ manifest_query() {
 
 # --- probing ---------------------------------------------------------------
 
-# Run one module's check in a subshell so module functions never collide.
+# Ask one module whether its tool is already there. Modules are run, not
+# sourced, so a module's helpers and variables can never leak into this script
+# or into the next module.
 probe_one() {
-	probe_script="$1"
-	(
-		load_env
-		# shellcheck source=/dev/null
-		. "$DVB_ROOT/$probe_script"
-		dvb_check
-	) 2>/dev/null
+	"$DVB_ROOT/$1" check 2>/dev/null
 }
 
 # Writes "id<TAB>status<TAB>version" for every module in the manifest.
@@ -336,15 +333,9 @@ install_one() {
 		return 0
 	fi
 
-	if (
-		load_env
-		MOD_PIN="$pin"
-		MOD_PIN_EXTRA="$pin_extra"
-		export MOD_PIN MOD_PIN_EXTRA
-		# shellcheck source=/dev/null
-		. "$DVB_ROOT/$script"
-		dvb_install
-	); then
+	# The pin comes from the manifest row read above. A module run by hand
+	# with no MOD_PIN looks it up in the manifest itself.
+	if MOD_PIN="$pin" MOD_PIN_EXTRA="$pin_extra" "$DVB_ROOT/$script" install; then
 		version="$(probe_one "$script" || true)"
 		log_ok "${name}${version:+ - $version}"
 		return 0
@@ -491,6 +482,7 @@ main() {
 	detect_all
 	adopt_invoking_user
 	require_python
+	detect_export
 	detect_report
 	if [ "$DVB_USER" != "$(id -un)" ]; then
 		printf '  %-12s %s (%s)\n' "installing for" "$DVB_USER" "$HOME"
@@ -499,6 +491,10 @@ main() {
 
 	tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/devbox.XXXXXX")"
 	trap 'rm -rf "$tmp_dir"' EXIT INT TERM
+	# Modules are separate processes; this is where they leave the per-run
+	# notes they need to share, such as "the apt index is already refreshed".
+	DVB_RUN_DIR="$tmp_dir"
+	export DVB_RUN_DIR
 	STATE_FILE="$tmp_dir/state.tsv"
 	SELECT_FILE="$tmp_dir/select.txt"
 

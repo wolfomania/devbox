@@ -1,6 +1,9 @@
 #!/bin/sh
 # TeX Live from apt. The packages below are the manually-marked set; apt pulls
 # the rest in as dependencies.
+#
+#   modules/optional/latex.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 LATEX_PACKAGES="texlive-latex-base texlive-latex-recommended texlive-latex-extra
 texlive-fonts-recommended texlive-fonts-extra texlive-lang-english latexmk"
@@ -16,3 +19,5 @@ dvb_install() {
 	# shellcheck disable=SC2086
 	pkg_install $LATEX_PACKAGES
 }
+
+dvb_main "$@"

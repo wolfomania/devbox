@@ -2,8 +2,6 @@
 # Package manager abstraction. Only apt is implemented today; every other
 # manager reports as unsupported rather than guessing at package names.
 
-DVB_PKG_REFRESHED=0
-
 # Run a command with root privileges, or fail clearly if that is impossible.
 as_root() {
 	case "$DVB_PRIV" in
@@ -21,12 +19,22 @@ pkg_supported() {
 }
 
 # Refresh the package index at most once per run.
+#
+# Every module runs as its own process, so "already refreshed" cannot live in a
+# variable. install.sh points DVB_RUN_DIR at its per-run temporary directory
+# and the refresh leaves a stamp there. A module run on its own has no run
+# directory and refreshes for itself, which is what a one-off run should do.
 pkg_refresh() {
-	[ "$DVB_PKG_REFRESHED" -eq 0 ] || return 0
 	pkg_supported || return 1
+
+	stamp=""
+	[ -n "${DVB_RUN_DIR:-}" ] && stamp="$DVB_RUN_DIR/apt-refreshed"
+	[ -n "$stamp" ] && [ -f "$stamp" ] && return 0
+
 	log_dim "  refreshing package index"
 	as_root apt-get update -qq || return 1
-	DVB_PKG_REFRESHED=1
+	[ -n "$stamp" ] && : > "$stamp"
+	return 0
 }
 
 pkg_installed() {
@@ -75,7 +83,8 @@ pkg_add_repo() {
 	fetch_to_stdout "$key_url" | as_root tee "$keyring" >/dev/null || return 1
 	as_root chmod a+r "$keyring" || return 1
 	printf '%s\n' "$source_body" | as_root tee "/etc/apt/sources.list.d/${repo_name}.list" >/dev/null || return 1
-	DVB_PKG_REFRESHED=0
+	# The new repository is not in the index the stamp vouches for.
+	[ -n "${DVB_RUN_DIR:-}" ] && rm -f "$DVB_RUN_DIR/apt-refreshed"
 	pkg_refresh
 }
 

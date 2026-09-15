@@ -1,5 +1,8 @@
 #!/bin/sh
 # Claude Code via Anthropic's native installer. Installs under $HOME.
+#
+#   modules/optional/claude-code.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 dvb_check() {
 	command -v claude >/dev/null 2>&1 || return 1
@@ -12,3 +15,5 @@ dvb_install() {
 	fetch_to_stdout "https://claude.ai/install.sh" | bash >/dev/null 2>&1 || return 1
 	[ -x "$DVB_BIN/claude" ] || command -v claude >/dev/null 2>&1
 }
+
+dvb_main "$@"

@@ -1,5 +1,8 @@
 #!/bin/sh
 # Neovim with no configuration imposed; ~/.config/nvim is left untouched.
+#
+#   modules/optional/editors.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 dvb_check() {
 	command -v nvim >/dev/null 2>&1 || return 1
@@ -9,3 +12,5 @@ dvb_check() {
 dvb_install() {
 	pkg_install neovim
 }
+
+dvb_main "$@"

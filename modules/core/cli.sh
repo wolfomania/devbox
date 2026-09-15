@@ -1,5 +1,8 @@
 #!/bin/sh
 # The shell utilities assumed by the rest of this setup.
+#
+#   modules/core/cli.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 CLI_PACKAGES="ripgrep jq fzf tmux htop tree"
 
@@ -18,3 +21,5 @@ dvb_install() {
 	# shellcheck disable=SC2086
 	pkg_install $CLI_PACKAGES
 }
+
+dvb_main "$@"

@@ -1,6 +1,9 @@
 #!/bin/sh
 # Rust through rustup. The toolchain lands in ~/.rustup and ~/.cargo.
 # This is the largest module by far; see size_mb in the manifest.
+#
+#   modules/lang/rust.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 dvb_check() {
 	command -v rustc >/dev/null 2>&1 || return 1
@@ -16,3 +19,5 @@ dvb_install() {
 	env_add '[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"'
 	[ -x "$HOME/.cargo/bin/rustc" ]
 }
+
+dvb_main "$@"

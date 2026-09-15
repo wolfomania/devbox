@@ -193,6 +193,17 @@ def _cli(argv):
         print("\n".join(m.id for m in catalogue.modules if m.default or m.required))
         return 0
 
+    if command == "pins" and len(argv) == 2:
+        # The pinned version and its companion pin, for the module whose script
+        # is at this path. Modules use it to look up their own pin.
+        wanted = argv[1]
+        for m in catalogue.modules:
+            if m.script == wanted:
+                print("%s\t%s" % (m.pin, m.pin_extra))
+                return 0
+        print("manifest.py: no module with script %r" % wanted, file=sys.stderr)
+        return 1
+
     if command == "field" and len(argv) == 3:
         print(getattr(catalogue.by_id(argv[1]), argv[2]))
         return 0
@@ -201,7 +212,8 @@ def _cli(argv):
         print("\n".join(resolve_order(catalogue, argv[1:])))
         return 0
 
-    print("usage: manifest.py [ids|rows|defaults|order IDS...|field ID NAME]", file=sys.stderr)
+    print("usage: manifest.py [ids|rows|defaults|order IDS...|field ID NAME|pins SCRIPT]",
+          file=sys.stderr)
     return 2
 
 

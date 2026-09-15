@@ -1,5 +1,8 @@
 #!/bin/sh
 # Client tools only. No database server is installed or started.
+#
+#   modules/optional/db.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 DB_PACKAGES="postgresql-client sqlite3"
 
@@ -13,3 +16,5 @@ dvb_install() {
 	# shellcheck disable=SC2086
 	pkg_install $DB_PACKAGES
 }
+
+dvb_main "$@"

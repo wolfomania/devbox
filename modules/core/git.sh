@@ -1,5 +1,8 @@
 #!/bin/sh
 # Git, plus one global default that is set only when the user has no opinion.
+#
+#   modules/core/git.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 dvb_check() {
 	command -v git >/dev/null 2>&1 || return 1
@@ -14,3 +17,5 @@ dvb_install() {
 		log_dim "  set init.defaultBranch = main"
 	fi
 }
+
+dvb_main "$@"

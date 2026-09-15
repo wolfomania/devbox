@@ -1,6 +1,9 @@
 #!/bin/sh
 # Python via uv: one binary that manages interpreters, venvs and tools.
 # Installs entirely under $HOME, so no root is needed.
+#
+#   modules/lang/python.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 dvb_check() {
 	command -v uv >/dev/null 2>&1 || return 1
@@ -20,3 +23,5 @@ dvb_install() {
 	env_add "# uv installs tools into ~/.local/bin"
 	[ -x "$DVB_BIN/uv" ]
 }
+
+dvb_main "$@"

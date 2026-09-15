@@ -1,5 +1,8 @@
 #!/bin/sh
 # GitHub CLI from the official apt repository, not the distro package.
+#
+#   modules/core/gh.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 GH_KEY_URL="https://cli.github.com/packages/githubcli-archive-keyring.gpg"
 
@@ -15,3 +18,5 @@ dvb_install() {
 	pkg_add_repo "github-cli" "$GH_KEY_URL" "$repo_line" || return 1
 	pkg_install gh
 }
+
+dvb_main "$@"

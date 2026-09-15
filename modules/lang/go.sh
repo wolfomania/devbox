@@ -1,6 +1,9 @@
 #!/bin/sh
 # Go from the official tarball, unpacked under $HOME rather than /usr/local,
 # so the module needs no root.
+#
+#   modules/lang/go.sh check | install | version
+. "$(dirname -- "$0")/../../lib/module.sh"
 
 dvb_check() {
 	command -v go >/dev/null 2>&1 || return 1
@@ -32,3 +35,5 @@ dvb_install() {
 	env_add 'export PATH="$HOME/go/bin:$PATH"'
 	[ -x "$DVB_PREFIX/go/bin/go" ]
 }
+
+dvb_main "$@"

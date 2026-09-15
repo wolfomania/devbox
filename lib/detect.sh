@@ -122,6 +122,20 @@ detect_all() {
 	detect_network
 }
 
+# Hand the detection results to child processes.
+#
+# Every module runs as its own process and would otherwise re-detect the
+# machine, which is a dozen extra commands per module and the same answer
+# every time. A module run on its own finds none of these set and detects for
+# itself.
+detect_export() {
+	export DVB_OS_ID DVB_OS_LIKE DVB_OS_VERSION DVB_OS_NAME DVB_KERNEL
+	export DVB_ARCH DVB_ARCH_RAW DVB_LIBC
+	export DVB_PKG DVB_PRIV DVB_CAN_ROOT
+	export DVB_RAM_MB DVB_SWAP_MB DVB_DISK_FREE_MB
+	export DVB_PYTHON DVB_NET_TOOL
+}
+
 # Human-readable summary of everything detect_all found.
 detect_report() {
 	log_head "Machine"
