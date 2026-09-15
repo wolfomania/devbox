@@ -21,6 +21,8 @@ MARK_COLUMN = 3
 # One cell of gutter after the checkbox.
 NAME_START = MARK_COLUMN + glyphs.MARKER_WIDTH + 1
 NAME_COLUMN = 18
+# Rule, download size and key hints under the confirmation list.
+CONFIRM_FOOTER_LINES = 3
 STATUS_COLUMN = 26
 MB_PER_GB = 1024
 
@@ -218,6 +220,16 @@ class Screen:
             and self.states[module.id].status != manifest_mod.STATUS_INSTALLED
         ]
 
+    def install_list(self):
+        """Exactly what an install would run, in the order it would run it.
+
+        Dependencies are pulled in even when they were not ticked, and
+        anything already installed is dropped, which is the rule the headless
+        path in install.sh applies too.
+        """
+        ordered = manifest_mod.resolve_order(self.catalogue, self.pending_ids())
+        return [i for i in ordered if self.states[i].status != manifest_mod.STATUS_INSTALLED]
+
     def pending_size(self):
         return sum(self.catalogue.by_id(i).size_mb for i in self.pending_ids())
 
@@ -320,6 +332,36 @@ class Screen:
         win.addnstr(height - 2, 1, summary, width - 2, curses.color_pair(PAIR_TITLE))
         win.addnstr(height - 1, 1, keys, width - 2, curses.color_pair(PAIR_DIM))
 
+    def draw_confirm(self, win, ids):
+        """The install list, spelled out, with nothing else on the screen."""
+        win.erase()
+        height, width = win.getmaxyx()
+        self.draw_header(win, width)
+
+        title = "Install these %d modules:" % len(ids)
+        win.addnstr(HEADER_LINES, 1, title, width - 2, curses.color_pair(PAIR_TITLE) | curses.A_BOLD)
+
+        top = HEADER_LINES + 1
+        room = max(1, height - top - CONFIRM_FOOTER_LINES)
+        shown = ids if len(ids) <= room else ids[: room - 1]
+        for offset, module_id in enumerate(shown):
+            module = self.catalogue.by_id(module_id)
+            size = human_size(module.size_mb) if module.size_mb else ""
+            line = "  %s%s" % (fit(module.name, NAME_COLUMN), size)
+            win.addnstr(top + offset, 1, line, width - 2)
+        if len(shown) < len(ids):
+            win.addnstr(top + len(shown), 1, "  and %d more" % (len(ids) - len(shown)),
+                        width - 2, curses.color_pair(PAIR_DIM))
+
+        total = sum(self.catalogue.by_id(i).size_mb for i in ids)
+        win.addnstr(height - 3, 1, self.glyph["rule"] * max(0, width - 2), width - 2,
+                    curses.color_pair(PAIR_DIM))
+        win.addnstr(height - 2, 1, "%s to download" % human_size(total), width - 2,
+                    curses.color_pair(PAIR_TITLE))
+        win.addnstr(height - 1, 1, "y installs  any other key goes back", width - 2,
+                    curses.color_pair(PAIR_DIM))
+        win.refresh()
+
     def draw(self, win):
         win.erase()
         height, width = win.getmaxyx()
@@ -379,12 +421,32 @@ class Screen:
             self.reset_defaults()
         elif key == curses.KEY_MOUSE:
             self.handle_mouse(list_height)
-        elif key in (curses.KEY_ENTER, 10, 13):
-            self.confirmed = True
-            return False
         elif key in (ord("q"), ord("Q"), KEY_ESCAPE):
             return False
         return True
+
+    def ask_to_install(self, win):
+        """Show the install list and wait for a yes. True once it has one.
+
+        Only `y` confirms. Enter is the key a terminal is most likely to have
+        queued already, from a pasted command or an impatient second press,
+        and it used to install the defaults before the menu was ever read;
+        here it takes the user back to the list like any other key.
+        """
+        ids = self.install_list()
+        if not ids:
+            # Nothing to install. install.sh says so; there is nothing to ask.
+            self.confirmed = True
+            return True
+        while True:
+            self.draw_confirm(win, ids)
+            key = self.read_key(win)
+            if key == curses.KEY_RESIZE:
+                continue
+            if key in (ord("y"), ord("Y")):
+                self.confirmed = True
+                return True
+            return False
 
     def handle_mouse(self, list_height):
         """A click on a module line moves the cursor there and toggles it."""
@@ -459,6 +521,10 @@ class Screen:
                 return
             if key in (curses.KEY_RESIZE, KEY_IGNORE, -1):
                 continue
+            if key in (curses.KEY_ENTER, 10, 13):
+                if self.ask_to_install(win):
+                    return
+                continue
             running = self.handle_key(key, list_height)
 
 
@@ -502,9 +568,8 @@ def main(argv):
     if not screen.confirmed:
         return 2
 
-    ordered = manifest_mod.resolve_order(catalogue, screen.pending_ids())
     with open(args.out, "w", encoding="utf-8") as handle:
-        for module_id in ordered:
+        for module_id in screen.install_list():
             handle.write(module_id + "\n")
     return 0
 
