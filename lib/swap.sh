@@ -20,7 +20,20 @@ swap_can_create() {
 	[ "$DVB_CAN_ROOT" -eq 1 ] || return 1
 	[ ! -e "$SWAP_PATH" ] || return 1
 	[ "$DVB_DISK_FREE_MB" -gt $((SWAP_CREATE_MB + 1024)) ] || return 1
-	command -v mkswap >/dev/null 2>&1
+	swap_have_mkswap
+}
+
+# mkswap lives in /usr/sbin, which Debian and Ubuntu leave out of a non-root
+# user's PATH. The command itself runs through as_root, where sudo finds it on
+# its own secure_path, so asking our own PATH for it answers the wrong
+# question: it said no swapfile could be created on every box devbox was run
+# on without sudo in front of it, which is the documented way to run it.
+swap_have_mkswap() {
+	command -v mkswap >/dev/null 2>&1 && return 0
+	for dir in /usr/sbin /sbin; do
+		[ -x "$dir/mkswap" ] && return 0
+	done
+	return 1
 }
 
 # Create, enable and persist a swapfile. Every step is reversible with
