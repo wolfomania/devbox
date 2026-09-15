@@ -9,12 +9,29 @@ manages per-project Nix environments.
 ## Quick start
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh
+```
+
+Arrow keys move, space toggles, enter installs, `q` quits.
+
+That one file is the whole entry point. Piped into a shell it downloads the
+rest of the repository to `~/.local/share/devbox/src`, re-runs from there, and
+reattaches the terminal so the selection screen still works. Flags pass through
+with `sh -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh -s -- --yes
+```
+
+From a clone it runs in place and downloads nothing:
+
+```sh
 git clone https://github.com/wolfomania/devbox.git
 cd devbox
 ./install.sh
 ```
 
-Arrow keys move, space toggles, enter installs, `q` quits.
+Set `DVB_REPO` or `DVB_REF` to bootstrap from a fork or a branch.
 
 ## What it does
 
@@ -90,11 +107,12 @@ sudo sed -i '/^\/swapfile /d' /etc/fstab
 - `dnf`, `pacman`, `apk` and `brew` are detected but not yet implemented; those
   boxes can still install every module that does not need root.
 - Requires `python3` 3.8 or newer with the `curses` module, and `curl` or `wget`.
+- The one-line install also needs `tar`.
 
 ## Layout
 
 ```
-install.sh          entry point: detect, select, install
+install.sh          entry point: bootstrap, detect, select, install
 manifest.toml       module catalogue and pinned versions
 lib/                detection, package manager, swap, PATH handling
 modules/            one script per module, each defining dvb_check and dvb_install

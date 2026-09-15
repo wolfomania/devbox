@@ -1,6 +1,7 @@
 #!/bin/sh
 # devbox - one command to provision a development box.
 #
+#   curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh
 #   ./install.sh                     interactive
 #   ./install.sh --list              show what is installed and what is missing
 #   ./install.sh --yes               install the default selection, no prompts
@@ -12,6 +13,61 @@
 set -u
 
 DVB_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+
+# --- bootstrap -------------------------------------------------------------
+#
+# Piped into a shell there is no repository on disk, only this file. Fetch the
+# rest, then hand over to the copy that has its libraries next to it.
+
+DVB_REPO="${DVB_REPO:-wolfomania/devbox}"
+DVB_REF="${DVB_REF:-main}"
+DVB_SRC="${XDG_DATA_HOME:-$HOME/.local/share}/devbox/src"
+
+boot_fetch() {
+	if command -v curl >/dev/null 2>&1; then
+		curl -fsSL "$1"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -qO- "$1"
+	else
+		echo "devbox: curl or wget is required" >&2
+		return 1
+	fi
+}
+
+boot_download() {
+	command -v tar >/dev/null 2>&1 || {
+		echo "devbox: tar is required" >&2
+		return 1
+	}
+
+	echo "devbox: fetching $DVB_REPO@$DVB_REF"
+	rm -rf "$DVB_SRC"
+	mkdir -p "$DVB_SRC" || return 1
+	boot_fetch "https://codeload.github.com/$DVB_REPO/tar.gz/refs/heads/$DVB_REF" |
+		tar -xz -C "$DVB_SRC" --strip-components=1 || return 1
+	[ -r "$DVB_SRC/lib/detect.sh" ] || {
+		echo "devbox: download looks incomplete" >&2
+		return 1
+	}
+}
+
+# Re-exec from the downloaded copy. stdin is the script itself when piped, so
+# reattach the terminal or the selection screen has nothing to read.
+boot_handover() {
+	chmod +x "$DVB_SRC/install.sh" 2>/dev/null
+	# A readable /dev/tty node is not enough: a process with no controlling
+	# terminal can see the node and still fail to open it. Try it in a subshell.
+	if [ ! -t 0 ] && (exec 3< /dev/tty) 2>/dev/null; then
+		exec sh "$DVB_SRC/install.sh" "$@" < /dev/tty
+	fi
+	exec sh "$DVB_SRC/install.sh" "$@"
+}
+
+if [ ! -r "$DVB_ROOT/lib/detect.sh" ]; then
+	boot_download || exit 1
+	boot_handover "$@"
+fi
+
 DVB_MANIFEST="${DVB_MANIFEST:-$DVB_ROOT/manifest.toml}"
 export DVB_MANIFEST
 
