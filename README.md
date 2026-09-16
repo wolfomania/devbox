@@ -60,7 +60,7 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | Tools | `yq` | optional | no | yq |
 | DevOps | `docker` | optional | yes | Docker Engine, Compose plugin |
 | DevOps | `modal` | optional | no | Modal CLI; requires `python` |
-| DevOps | `aws` | optional | no | AWS CLI v2 |
+| DevOps | `aws` | optional | no | AWS CLI v2; needs unzip |
 | DevOps | `gcloud` | optional | yes | Google Cloud CLI |
 | DevOps | `supabase` | optional | no | Supabase CLI |
 | DevOps | `vercel` | optional | no | Vercel CLI; requires `node` |
