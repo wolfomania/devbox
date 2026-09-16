@@ -71,21 +71,59 @@ pkg_install() {
 }
 
 # Register an apt repository from a keyring URL and a deb822 source body.
+#
+# The key is dearmored when the fetched bytes are ASCII-armored (how most
+# vendors publish a signing key) and installed verbatim when they are already
+# binary (as GitHub CLI's keyring is): apt's signed-by option only accepts
+# the binary form.
+#
+# If the index refresh that follows fails, the list file just written is
+# removed again. Left in place, a bad repository entry fails pkg_refresh --
+# and with it every pkg_install -- for the rest of the run, and every run
+# after that, since the check above treats the list file's mere presence as
+# "already done".
 pkg_add_repo() {
 	repo_name="$1"
 	key_url="$2"
 	source_body="$3"
 	keyring="/etc/apt/keyrings/${repo_name}.gpg"
+	list="/etc/apt/sources.list.d/${repo_name}.list"
 
-	[ -f "/etc/apt/sources.list.d/${repo_name}.list" ] && return 0
+	[ -f "$list" ] && return 0
 
 	as_root install -m 0755 -d /etc/apt/keyrings || return 1
-	fetch_to_stdout "$key_url" | as_root tee "$keyring" >/dev/null || return 1
+
+	key_tmp="$(mktemp)"
+	fetch_to_stdout "$key_url" > "$key_tmp" || {
+		rm -f "$key_tmp"
+		return 1
+	}
+
+	if head -1 "$key_tmp" | grep -q '^-----BEGIN PGP PUBLIC KEY BLOCK-----'; then
+		command -v gpg >/dev/null 2>&1 || pkg_install gnupg || {
+			rm -f "$key_tmp"
+			return 1
+		}
+		as_root gpg --dearmor --yes -o "$keyring" < "$key_tmp" || {
+			rm -f "$key_tmp"
+			return 1
+		}
+	else
+		as_root install -m 0644 "$key_tmp" "$keyring" || {
+			rm -f "$key_tmp"
+			return 1
+		}
+	fi
+	rm -f "$key_tmp"
+
 	as_root chmod a+r "$keyring" || return 1
-	printf '%s\n' "$source_body" | as_root tee "/etc/apt/sources.list.d/${repo_name}.list" >/dev/null || return 1
+	printf '%s\n' "$source_body" | as_root tee "$list" >/dev/null || return 1
 	# The new repository is not in the index the stamp vouches for.
 	[ -n "${DVB_RUN_DIR:-}" ] && rm -f "$DVB_RUN_DIR/apt-refreshed"
-	pkg_refresh
+	if ! pkg_refresh; then
+		as_root rm -f "$list"
+		return 1
+	fi
 }
 
 # Download a URL to stdout using whichever fetcher the box has.
