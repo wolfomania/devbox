@@ -31,3 +31,52 @@ needs_root = false
 pin = "1.5.5"
 pin_kind = "uv"
 size_mb = 60
+
+[[module]]
+id = "aws"
+name = "AWS CLI"
+summary = "aws v2 from Amazon's own installer, unpacked under $HOME; needs unzip"
+script = "modules/optional/aws.sh"
+default = false
+required = false
+needs_root = false
+pin = "latest"
+pin_kind = "zip"
+size_mb = 250
+
+[[module]]
+id = "gcloud"
+name = "Google Cloud CLI"
+summary = "gcloud, from Google's apt repository"
+script = "modules/optional/gcloud.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 525
+
+[[module]]
+id = "supabase"
+name = "Supabase CLI"
+summary = "the Supabase client, from its GitHub release"
+script = "modules/optional/supabase.sh"
+default = false
+required = false
+needs_root = false
+pin = "2.117.0"
+pin_kind = "tarball"
+size_mb = 60
+
+[[module]]
+id = "vercel"
+name = "Vercel CLI"
+summary = "deploys to Vercel; requires the Node module"
+script = "modules/optional/vercel.sh"
+requires = ["node"]
+default = false
+required = false
+needs_root = false
+pin = "59.19.0"
+pin_kind = "npm"
+size_mb = 90

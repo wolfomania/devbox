@@ -55,6 +55,10 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | Tools | `db` | optional | yes | psql, sqlite3 |
 | DevOps | `docker` | optional | yes | Docker Engine, Compose plugin |
 | DevOps | `modal` | optional | no | Modal CLI; requires `python` |
+| DevOps | `aws` | optional | no | AWS CLI v2 |
+| DevOps | `gcloud` | optional | yes | Google Cloud CLI |
+| DevOps | `supabase` | optional | no | Supabase CLI |
+| DevOps | `vercel` | optional | no | Vercel CLI; requires `node` |
 | AI agents | `claude-code` | optional | no | Claude Code |
 | AI agents | `codex` | optional | no | Codex CLI; requires `node` |
 | Documents | `latex` | optional | yes | TeX Live, latexmk |
