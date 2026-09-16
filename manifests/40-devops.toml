@@ -18,3 +18,16 @@ needs_root = true
 pin = "apt"
 pin_kind = "apt"
 size_mb = 420
+
+[[module]]
+id = "modal"
+name = "Modal CLI"
+summary = "client for Modal's serverless compute; requires the Python module"
+script = "modules/optional/modal.sh"
+requires = ["python"]
+default = false
+required = false
+needs_root = false
+pin = "1.5.5"
+pin_kind = "uv"
+size_mb = 60

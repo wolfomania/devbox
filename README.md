@@ -54,6 +54,7 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | Tools | `editors` | optional | yes | Neovim |
 | Tools | `db` | optional | yes | psql, sqlite3 |
 | DevOps | `docker` | optional | yes | Docker Engine, Compose plugin |
+| DevOps | `modal` | optional | no | Modal CLI; requires `python` |
 | AI agents | `claude-code` | optional | no | Claude Code |
 | AI agents | `codex` | optional | no | Codex CLI; requires `node` |
 | Documents | `latex` | optional | yes | TeX Live, latexmk |
