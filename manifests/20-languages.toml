@@ -79,3 +79,15 @@ needs_root = true
 pin = "apt"
 pin_kind = "apt"
 size_mb = 90
+
+[[module]]
+id = "pnpm"
+name = "pnpm"
+summary = "the pnpm package manager, as a standalone binary under $HOME"
+script = "modules/lang/pnpm.sh"
+default = false
+required = false
+needs_root = false
+pin = "12.4.2"
+pin_kind = "script"
+size_mb = 55

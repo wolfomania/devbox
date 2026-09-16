@@ -30,3 +30,51 @@ needs_root = true
 pin = "apt"
 pin_kind = "apt"
 size_mb = 35
+
+[[module]]
+id = "shelltools"
+name = "Shell extras"
+summary = "shellcheck, bat, fd, delta, direnv, hyperfine, shfmt"
+script = "modules/optional/shelltools.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 45
+
+[[module]]
+id = "lazygit"
+name = "lazygit"
+summary = "a terminal UI for git, from its GitHub release"
+script = "modules/optional/lazygit.sh"
+default = false
+required = false
+needs_root = false
+pin = "0.65.1"
+pin_kind = "tarball"
+size_mb = 20
+
+[[module]]
+id = "just"
+name = "just"
+summary = "a command runner for project recipes"
+script = "modules/optional/just.sh"
+default = false
+required = false
+needs_root = false
+pin = "1.58.0"
+pin_kind = "tarball"
+size_mb = 6
+
+[[module]]
+id = "yq"
+name = "yq"
+summary = "mikefarah's YAML, JSON and XML processor"
+script = "modules/optional/yq.sh"
+default = false
+required = false
+needs_root = false
+pin = "4.53.6"
+pin_kind = "binary"
+size_mb = 14

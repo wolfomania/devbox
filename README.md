@@ -51,8 +51,13 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | Languages | `rust` | optional | no | rustup, Cargo, Clippy, rustfmt |
 | Languages | `java` | optional | yes | OpenJDK |
 | Languages | `ruby` | optional | yes | Ruby, gem, rake, Bundler |
+| Languages | `pnpm` | optional | no | pnpm |
 | Tools | `editors` | optional | yes | Neovim |
 | Tools | `db` | optional | yes | psql, sqlite3 |
+| Tools | `shelltools` | optional | yes | shellcheck, bat, fd, delta, direnv, hyperfine, shfmt |
+| Tools | `lazygit` | optional | no | lazygit |
+| Tools | `just` | optional | no | just |
+| Tools | `yq` | optional | no | yq |
 | DevOps | `docker` | optional | yes | Docker Engine, Compose plugin |
 | DevOps | `modal` | optional | no | Modal CLI; requires `python` |
 | DevOps | `aws` | optional | no | AWS CLI v2 |
