@@ -59,6 +59,10 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | DevOps | `gcloud` | optional | yes | Google Cloud CLI |
 | DevOps | `supabase` | optional | no | Supabase CLI |
 | DevOps | `vercel` | optional | no | Vercel CLI; requires `node` |
+| DevOps | `kubectl` | optional | yes | kubectl |
+| DevOps | `helm` | optional | no | Helm |
+| DevOps | `terraform` | optional | yes | Terraform (BUSL 1.1) |
+| DevOps | `opentofu` | optional | no | OpenTofu (`tofu`) |
 | AI agents | `claude-code` | optional | no | Claude Code |
 | AI agents | `codex` | optional | no | Codex CLI; requires `node` |
 | Documents | `latex` | optional | yes | TeX Live, latexmk |

@@ -80,3 +80,51 @@ needs_root = false
 pin = "59.19.0"
 pin_kind = "npm"
 size_mb = 90
+
+[[module]]
+id = "kubectl"
+name = "kubectl"
+summary = "the Kubernetes client, from the pkgs.k8s.io apt repository"
+script = "modules/optional/kubectl.sh"
+default = false
+required = false
+needs_root = true
+pin = "1.37"
+pin_kind = "apt"
+size_mb = 61
+
+[[module]]
+id = "helm"
+name = "Helm"
+summary = "the Kubernetes package manager, from the official tarball"
+script = "modules/optional/helm.sh"
+default = false
+required = false
+needs_root = false
+pin = "4.3.0"
+pin_kind = "tarball"
+size_mb = 60
+
+[[module]]
+id = "terraform"
+name = "Terraform"
+summary = "HashiCorp's infrastructure tool, from their apt repository (BUSL 1.1)"
+script = "modules/optional/terraform.sh"
+default = false
+required = false
+needs_root = true
+pin = "apt"
+pin_kind = "apt"
+size_mb = 118
+
+[[module]]
+id = "opentofu"
+name = "OpenTofu"
+summary = "the MPL-licensed Terraform fork; tofu, installed under $HOME"
+script = "modules/optional/opentofu.sh"
+default = false
+required = false
+needs_root = false
+pin = "1.12.6"
+pin_kind = "tarball"
+size_mb = 90
