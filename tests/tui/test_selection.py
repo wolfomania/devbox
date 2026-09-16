@@ -31,6 +31,27 @@ class SelectionScreenTest(unittest.TestCase):
         path = os.path.join(tempfile.mkdtemp(prefix="devbox-state-"), "state.tsv")
         return drive.write_state(path, installed)
 
+    def starts_ticked(self, module_id):
+        """Whether a module is ticked before any key is pressed.
+
+        Mirrors the rule Screen.initial_selection applies -- default or
+        required, and nothing here is installed or blocked -- so a paging
+        test can tell a SPACE that toggled the row it expected apart from one
+        that toggled some other row which happened to already carry the tick
+        it was looking for."""
+        module = drive.catalogue().by_id(module_id)
+        return module.default or module.required
+
+    def assert_landed_on(self, module_id, result):
+        """SPACE toggled this row: present if it started unticked, absent if
+        it started ticked. Checking plain membership would be wrong whenever
+        the landing row happens to be a default -- SPACE would untick it, and
+        a bare assertIn would misread that as the cursor never arriving."""
+        if self.starts_ticked(module_id):
+            self.assertNotIn(module_id, result.selection)
+        else:
+            self.assertIn(module_id, result.selection)
+
     # -- the defaults -------------------------------------------------------
 
     def test_enter_alone_installs_the_preselected_defaults(self):
@@ -63,23 +84,40 @@ class SelectionScreenTest(unittest.TestCase):
 
     def test_the_end_key_reaches_the_last_module(self):
         """The catalogue is taller than an 80x24 terminal, so the last entries
-        are only reachable by scrolling."""
+        are only reachable by scrolling. Read the last module off the live
+        catalogue rather than naming one: which module ends up last changes
+        whenever a manifest is added or reordered."""
+        last = drive.catalogue().modules[-1].id
         result = drive.run(["END", "SPACE", "ENTER", "y"])
         self.assertTrue(result.confirmed)
-        self.assertIn("latex", result.selection)
+        self.assertIn(last, result.selection)
 
     def test_page_down_moves_past_the_fold(self):
+        """One PGDN moves the cursor a whole page (drive.page_size() module
+        rows), not one row at a time, so it has to land on a row that was
+        below the fold on the first screen. The catalogue has already grown
+        once since this test was written (18 modules to 31), which moved the
+        module that used to sit at this landing spot; compute the landing
+        spot instead of naming a module."""
+        ids = [m.id for m in drive.catalogue().modules]
+        landing = ids[min(drive.page_size(), len(ids) - 1)]
         result = drive.run(["PGDN", "SPACE", "ENTER", "y"])
         self.assertTrue(result.confirmed)
-        self.assertIn("latex", result.selection)
+        self.assert_landed_on(landing, result)
 
     def test_page_up_moves_back_toward_the_top(self):
-        """From the last module, one page up runs out of list and stops on the
-        first, so the cursor can walk back down to a row near the top."""
-        result = drive.run(["END", "PGUP"] + drive.steps_to("gh") + ["SPACE", "ENTER", "y"])
+        """From the last module, one page up moves back a whole page too --
+        it only runs out of list and stops on the first module if the
+        catalogue is short enough for one page to reach past the top.
+        Compute where a page back from the end lands instead of assuming
+        it is the first row, and instead of assuming that row starts
+        unticked: on a short catalogue PGUP clamps to row 0, which is
+        `swap`, one of the rows the screen ticks by default."""
+        ids = [m.id for m in drive.catalogue().modules]
+        landing = ids[max(0, len(ids) - 1 - drive.page_size())]
+        result = drive.run(["END", "PGUP", "SPACE", "ENTER", "y"])
         self.assertTrue(result.confirmed)
-        self.assertIn("gh", result.selection)
-        self.assertNotIn("latex", result.selection)
+        self.assert_landed_on(landing, result)
 
     def test_the_screen_says_how_many_modules_are_out_of_view(self):
         result = drive.run(["q"])

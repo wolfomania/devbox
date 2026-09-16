@@ -22,6 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(ROOT, "tui"))
 
 import manifest as manifest_mod  # noqa: E402  (needs ROOT on the path first)
+import app as app_mod  # noqa: E402  (needs ROOT on the path first)
 
 # Terminal size to emulate. Deliberately the classic 80x24: the module list is
 # taller than that, and rows below the fold were once unreachable.
@@ -89,6 +90,17 @@ def key_bytes(name):
 
 def catalogue(manifest=None):
     return manifest_mod.load(manifest or os.path.join(ROOT, "manifests"))
+
+
+def page_size():
+    """Module rows visible in the list at once, at the geometry `run` emulates.
+
+    PGUP and PGDN move the cursor by exactly this many module rows. A test
+    that wants to know where a page key lands has to compute it from this,
+    not from a remembered row count or a module id that happened to sit
+    there for one catalogue.
+    """
+    return LINES - app_mod.HEADER_LINES - app_mod.FOOTER_LINES
 
 
 def steps_to(module_id, manifest=None):
