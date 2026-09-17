@@ -52,8 +52,9 @@ PAIR_DIM = 4
 PAIR_BLOCKED = 5
 PAIR_SELECTED = 6
 
-# How long to wait for the rest of an escape sequence before calling it a bare
-# ESC. Long enough to survive a laggy link, short enough to feel instant.
+# How long to wait for the rest of an escape sequence, or of a multi-byte
+# character, before giving up on it. Long enough to survive a laggy link,
+# short enough to feel instant.
 ESC_WINDOW_MS = 150
 # Longest sequence in ESC_SEQUENCES, used to stop reading runaway input.
 ESC_MAX_BODY = 4
@@ -264,6 +265,34 @@ def build_layout(catalogue, width, height):
             columns = candidate
             break
     return Layout(columns, count, column_width, height)
+
+
+# -- input ------------------------------------------------------------------
+
+# The Latin letter on the same physical key, for a keyboard typing another
+# script. Someone who left their layout on Ukrainian presses the key marked q
+# and the terminal sends й; the screen would otherwise ignore every letter
+# shortcut it has, while Enter, Space, the arrows and Esc kept working, which
+# reads as half the keyboard being broken. Only the keys this screen uses are
+# listed. The Cyrillic letters are the ЙЦУКЕН layout, which Ukrainian and
+# Russian share on these keys.
+CYRILLIC_KEYS = (
+    ("й", "q"), ("н", "y"), ("ф", "a"), ("в", "d"), ("п", "g"),
+    ("о", "j"), ("л", "k"), ("т", "n"), ("р", "h"), ("д", "l"),
+)
+KEY_ALIASES = dict(
+    [(letter, latin) for letter, latin in CYRILLIC_KEYS]
+    + [(letter.upper(), latin.upper()) for letter, latin in CYRILLIC_KEYS]
+)
+
+# Lead byte of a UTF-8 character, and the number of bytes that follow it.
+UTF8_TAILS = ((0xF0, 3), (0xE0, 2), (0xC2, 1))
+
+
+def alias_key(character):
+    """The key a character stands for, or KEY_IGNORE for one we have no use for."""
+    latin = KEY_ALIASES.get(character)
+    return ord(latin) if latin else KEY_IGNORE
 
 
 class Screen:
@@ -647,11 +676,16 @@ class Screen:
 
     def read_key(self, win):
         """One keypress, with escape sequences decoded whatever mode the
-        terminal is in. See ESC_SEQUENCES for why this is not left to curses."""
+        terminal is in, and letters read whatever script they arrive in.
+        See ESC_SEQUENCES for why this is not left to curses."""
         key = win.getch()
-        if key != KEY_ESCAPE:
-            return key
-        return self.read_escape(win)
+        if key == KEY_ESCAPE:
+            return self.read_escape(win)
+        # Above 255 is ncurses naming a key of its own, KEY_DOWN and the
+        # rest; only a byte in this range is part of a character.
+        if 127 < key < 256:
+            return self.read_character(win, key)
+        return key
 
     def read_escape(self, win):
         """Read the bytes after an ESC and name the key they spell.
@@ -676,6 +710,31 @@ class Screen:
             return KEY_ESCAPE if not body else KEY_IGNORE
         finally:
             win.timeout(-1)
+
+    def read_character(self, win, lead):
+        """Assemble one multi-byte character and name the key it sits on.
+
+        curses hands UTF-8 back one byte at a time, so a Cyrillic letter
+        arrives as a pair of bytes that mean nothing on their own. See
+        KEY_ALIASES for why the screen bothers to read them.
+        """
+        tail = next((count for start, count in UTF8_TAILS if lead >= start), 0)
+        if not tail:
+            return KEY_IGNORE
+        body = bytes([lead])
+        win.timeout(ESC_WINDOW_MS)
+        try:
+            for _ in range(tail):
+                following = win.getch()
+                if not 0x80 <= following <= 0xBF:
+                    return KEY_IGNORE
+                body += bytes([following])
+        finally:
+            win.timeout(-1)
+        try:
+            return alias_key(body.decode("utf-8"))
+        except UnicodeDecodeError:
+            return KEY_IGNORE
 
     def run(self, win):
         curses.curs_set(0)

@@ -507,8 +507,10 @@ pause_for_menu() {
 	printf '\n%s  press enter for the selection screen, q to quit: %s' "$C_DIM" "$C_RESET"
 	answer="$(read_one_key)" || return 1
 	printf '\n'
+	# й is the letter on the q key of a Ukrainian or Russian layout. Someone
+	# who left their layout there is told to press q and has no q to press.
 	case "$answer" in
-		q | Q | quit | exit) return 1 ;;
+		q | Q | й | Й | quit | exit) return 1 ;;
 	esac
 	return 0
 }
@@ -528,8 +530,31 @@ read_one_key() {
 	# dd rather than read: read has no way to stop after one character, and in
 	# raw mode there is no newline coming to stop it.
 	key="$(dd bs=1 count=1 2>/dev/null)"
+	key="$key$(read_key_tail "$key")"
 	tty_restore
 	printf '%s' "$key"
+}
+
+# The rest of a keypress that took more than one byte.
+#
+# A keyboard set to another script sends two bytes or more per letter: q on a
+# Ukrainian layout is й, which is two. dd stops after the first, so without
+# this the bytes left behind would be read as the answer to the next prompt.
+read_key_tail() {
+	lead="$(printf '%s' "$1" | od -An -tu1 2>/dev/null | tr -d ' ')"
+	case "$lead" in
+		'' | *[!0-9]*) return 0 ;;
+	esac
+	if [ "$lead" -ge 240 ]; then
+		count=3
+	elif [ "$lead" -ge 224 ]; then
+		count=2
+	elif [ "$lead" -ge 194 ]; then
+		count=1
+	else
+		return 0
+	fi
+	dd bs=1 count="$count" 2>/dev/null
 }
 
 # The selection screen is the home base. It opens, hands control to the

@@ -265,6 +265,30 @@ class SelectionScreenTest(unittest.TestCase):
         self.assertTrue(result.quit)
         self.assertEqual(result.selection, [])
 
+    # -- keyboard layouts ---------------------------------------------------
+
+    def test_q_quits_on_a_cyrillic_layout(self):
+        """q on a Ukrainian or Russian layout sends й. Enter, Space, the
+        arrows and Esc never cared what the layout was; the letter keys did,
+        so half the keyboard read as broken."""
+        result = drive.run(["й"])
+        self.assertTrue(result.quit)
+        self.assertEqual(result.selection, [])
+
+    def test_the_letter_shortcuts_work_on_a_cyrillic_layout(self):
+        """ф is a, т is n, н is y: tick everything, clear it, install what is
+        left, which is the two required modules."""
+        result = drive.run(["ф", "т", "ENTER", "н"])
+        self.assertTrue(result.confirmed)
+        self.assertEqual(result.selection, ["base", "git"])
+
+    def test_a_letter_that_is_not_a_shortcut_is_ignored(self):
+        """Most of the alphabet does nothing here, in any script, and doing
+        nothing must not turn into quitting."""
+        result = drive.run(["ю", "ENTER", "y"])
+        self.assertTrue(result.confirmed)
+        self.assertEqual(result.selection, DEFAULTS)
+
     def test_an_unrecognised_escape_sequence_is_ignored_not_read_as_a_quit(self):
         """Shift-Tab is ESC [ Z. It means nothing here, and it must not be
         mistaken for the user pressing escape."""

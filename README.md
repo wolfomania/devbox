@@ -17,6 +17,9 @@ need root.
 - Enter: review the ticked rows, then `y` to install
 - Esc or `q`: exit
 
+The letter shortcuts are read by the key's position, so they still work with
+a Ukrainian or Russian layout selected.
+
 The menu reopens after each install. The one-line command downloads the
 repository to `~/.local/share/devbox/src`.
 

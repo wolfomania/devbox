@@ -126,6 +126,12 @@ class PromptTest(unittest.TestCase):
         status, _ = ask(b"Q")
         self.assertEqual(status, 1)
 
+    def test_q_is_taken_on_a_cyrillic_layout(self):
+        """й is the letter on the q key of a Ukrainian or Russian layout, and
+        it arrives as two bytes rather than one."""
+        status, _ = ask("й".encode())
+        self.assertEqual(status, 1)
+
     def test_any_other_key_reopens_the_selection_screen(self):
         status, _ = ask(b"x")
         self.assertEqual(status, 0)
