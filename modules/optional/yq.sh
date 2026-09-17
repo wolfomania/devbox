@@ -3,6 +3,11 @@
 # unrelated Python "yq" wrapper around jq. Fetched straight from the GitHub
 # release, so no root is needed.
 #
+# MOD_PIN is "latest", which is what the manifest says, or an exact version.
+# yq names its asset without the version in it, so the newest release can be
+# fetched through the /releases/latest/ redirect without asking the API which
+# one that is.
+#
 #   modules/optional/yq.sh check | install | version
 . "$(dirname -- "$0")/../../lib/module.sh"
 
@@ -15,7 +20,11 @@ dvb_check() {
 
 dvb_install() {
 	asset="yq_linux_${DVB_ARCH}"
-	url="https://github.com/mikefarah/yq/releases/download/v${MOD_PIN}/${asset}"
+	if [ "$MOD_PIN" = "latest" ]; then
+		url="https://github.com/mikefarah/yq/releases/latest/download/${asset}"
+	else
+		url="https://github.com/mikefarah/yq/releases/download/v${MOD_PIN}/${asset}"
+	fi
 	env_init
 
 	# Downloaded to a temporary file first: a fetch that dies part-way through

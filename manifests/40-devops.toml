@@ -64,8 +64,8 @@ script = "modules/optional/supabase.sh"
 default = false
 required = false
 needs_root = false
-pin = "2.117.0"
-pin_kind = "tarball"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 60
 
 [[module]]

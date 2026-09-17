@@ -2,6 +2,10 @@
 # lazygit from its GitHub release tarball. A bare binary, so no root is
 # needed.
 #
+# MOD_PIN is "latest", which is what the manifest says, or an exact version.
+# The asset carries the version in its name, so the newest release has to be
+# looked up before the URL can be written.
+#
 #   modules/optional/lazygit.sh check | install | version
 . "$(dirname -- "$0")/../../lib/module.sh"
 
@@ -25,26 +29,11 @@ dvb_check() {
 
 dvb_install() {
 	arch="$(lazygit_arch)" || return 1
-	asset="lazygit_${MOD_PIN}_linux_${arch}.tar.gz"
-	url="https://github.com/jesseduffield/lazygit/releases/download/v${MOD_PIN}/${asset}"
-	tmp="$(mktemp -d)"
+	release="$(mod_release jesseduffield/lazygit)" || return 1
+	asset="lazygit_${release}_linux_${arch}.tar.gz"
+	url="https://github.com/jesseduffield/lazygit/releases/download/v${release}/${asset}"
 
-	log_dim "  fetching $asset"
-	if ! fetch_to_file "$url" "$tmp/$asset"; then
-		rm -rf "$tmp"
-		return 1
-	fi
-
-	tar -C "$tmp" -xzf "$tmp/$asset" lazygit || {
-		rm -rf "$tmp"
-		return 1
-	}
-
-	env_init
-	install -m 0755 "$tmp/lazygit" "$DVB_BIN/lazygit"
-	status=$?
-	rm -rf "$tmp"
-	[ "$status" -eq 0 ] && [ -x "$DVB_BIN/lazygit" ]
+	fetch_bin_from_tar "$url" lazygit
 }
 
 dvb_main "$@"

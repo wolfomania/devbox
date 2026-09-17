@@ -51,8 +51,8 @@ script = "modules/optional/lazygit.sh"
 default = false
 required = false
 needs_root = false
-pin = "0.65.1"
-pin_kind = "tarball"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 20
 
 [[module]]
@@ -63,8 +63,8 @@ script = "modules/optional/just.sh"
 default = false
 required = false
 needs_root = false
-pin = "1.58.0"
-pin_kind = "tarball"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 6
 
 [[module]]
@@ -75,6 +75,6 @@ script = "modules/optional/yq.sh"
 default = false
 required = false
 needs_root = false
-pin = "4.53.6"
-pin_kind = "binary"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 14

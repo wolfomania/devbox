@@ -3,6 +3,10 @@
 # The musl build is used so the binary needs no particular glibc version; a
 # bare binary either way, so no root is needed.
 #
+# MOD_PIN is "latest", which is what the manifest says, or an exact version.
+# The asset carries the version in its name, so the newest release has to be
+# looked up before the URL can be written.
+#
 #   modules/optional/just.sh check | install | version
 . "$(dirname -- "$0")/../../lib/module.sh"
 
@@ -24,26 +28,11 @@ dvb_check() {
 
 dvb_install() {
 	triple="$(just_triple)" || return 1
-	asset="just-${MOD_PIN}-${triple}.tar.gz"
-	url="https://github.com/casey/just/releases/download/${MOD_PIN}/${asset}"
-	tmp="$(mktemp -d)"
+	release="$(mod_release casey/just)" || return 1
+	asset="just-${release}-${triple}.tar.gz"
+	url="https://github.com/casey/just/releases/download/${release}/${asset}"
 
-	log_dim "  fetching $asset"
-	if ! fetch_to_file "$url" "$tmp/$asset"; then
-		rm -rf "$tmp"
-		return 1
-	fi
-
-	tar -C "$tmp" -xzf "$tmp/$asset" just || {
-		rm -rf "$tmp"
-		return 1
-	}
-
-	env_init
-	install -m 0755 "$tmp/just" "$DVB_BIN/just"
-	status=$?
-	rm -rf "$tmp"
-	[ "$status" -eq 0 ] && [ -x "$DVB_BIN/just" ]
+	fetch_bin_from_tar "$url" just
 }
 
 dvb_main "$@"

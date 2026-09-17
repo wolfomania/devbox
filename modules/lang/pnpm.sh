@@ -3,9 +3,13 @@
 # Node are needed: the installer fetches a self-contained pnpm binary and
 # only calls out to Node afterwards, for packages that want it.
 #
-# The installer script itself is not version-pinned, only the pnpm binary it
-# fetches (via $PNPM_VERSION below): it is re-fetched from get.pnpm.io on
-# every install and could change behaviour out from under this module.
+# MOD_PIN is "latest", which is what the manifest says, or an exact version
+# to hold at. pnpm is a tool rather than a runtime, so it takes the newest
+# release; the installer does that by itself when $PNPM_VERSION is not set.
+#
+# The installer script itself is not version-pinned either way: it is
+# re-fetched from get.pnpm.io on every install and could change behaviour out
+# from under this module.
 #
 # The installer's own `pnpm setup` step insists on picking a shell config
 # file to append PATH to, and fails outright if it cannot infer one (this
@@ -43,9 +47,11 @@ dvb_install() {
 	# shell-config file it picks despite SHELL/ENV above lands here instead
 	# of in a real profile.
 	mkdir -p "$tmp/home"
-	env HOME="$tmp/home" PNPM_VERSION="$MOD_PIN" PNPM_HOME="$pnpm_home" \
-		SHELL=/bin/sh ENV="$tmp/shinit" \
-		sh "$tmp/install.sh" >/dev/null 2>&1
+	# PNPM_VERSION unset is how the installer is asked for the newest
+	# release; set to the empty string it is not the same thing.
+	set -- HOME="$tmp/home" PNPM_HOME="$pnpm_home" SHELL=/bin/sh ENV="$tmp/shinit"
+	[ "$MOD_PIN" = "latest" ] || set -- "$@" PNPM_VERSION="$MOD_PIN"
+	env "$@" sh "$tmp/install.sh" >/dev/null 2>&1
 	status=$?
 	rm -rf "$tmp"
 	[ "$status" -eq 0 ] || return 1

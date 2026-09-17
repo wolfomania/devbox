@@ -87,6 +87,21 @@ dvb_load_pin() {
 	export MOD_PIN MOD_PIN_EXTRA
 }
 
+# The release this module should install: the version the manifest pins, or
+# the newest release of a GitHub repository when the pin says "latest".
+#
+# Everything here that is not a language runtime takes the latest release,
+# and most of those live on GitHub. A module that can name its asset without
+# the version -- yq and supabase both can, through the /releases/latest/
+# download/ redirect -- does not need this and does not call it.
+mod_release() {
+	if [ "$MOD_PIN" = "latest" ]; then
+		gh_latest_tag "$1"
+	else
+		printf '%s\n' "$MOD_PIN"
+	fi
+}
+
 # --- bundles ---------------------------------------------------------------
 
 dvb_part() { printf '%s\n' "$DVB_ROOT/modules/parts/$1.sh"; }
