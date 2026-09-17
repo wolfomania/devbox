@@ -149,3 +149,73 @@ fetch_to_file() {
 			;;
 	esac
 }
+
+# The newest release tag of a GitHub repository, with any leading "v" removed.
+#
+# Most projects here can be fetched without knowing the version at all:
+# https://github.com/OWNER/REPO/releases/latest/download/ASSET redirects to
+# whatever the newest release is. That only works when the asset name carries
+# no version in it, and several projects name theirs after the release --
+# lazygit_0.65.1_linux_x86_64.tar.gz -- which makes the URL impossible to
+# write without already having the answer. Those ask here instead.
+#
+# The unauthenticated API allows 60 requests an hour per address, which is
+# plenty for an install of a handful of modules but is shared with anything
+# else on the same address. GITHUB_TOKEN is used when the environment has one.
+gh_latest_tag() {
+	repo="$1"
+	url="https://api.github.com/repos/${repo}/releases/latest"
+
+	if [ -n "${GITHUB_TOKEN:-}" ]; then
+		case "$DVB_NET_TOOL" in
+			curl) body="$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" "$url")" ;;
+			wget) body="$(wget -qO- --header="Authorization: Bearer $GITHUB_TOKEN" "$url")" ;;
+			*) body="" ;;
+		esac
+	else
+		body="$(fetch_to_stdout "$url")"
+	fi
+
+	tag="$(printf '%s\n' "$body" |
+		sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+	[ -n "$tag" ] || {
+		log_err "could not read the latest release of $repo from the GitHub API"
+		return 1
+	}
+	printf '%s\n' "${tag#v}"
+}
+
+# Install one executable out of a remote tarball into ~/.local/bin.
+#
+#   fetch_bin_from_tar URL MEMBER [NAME]
+#
+# MEMBER is the path of the file inside the archive, NAME what it should be
+# called on PATH. Half the modules here are one binary in a tarball and were
+# each carrying their own copy of this.
+#
+# The archive is unpacked to a temporary directory and only then moved into
+# place, so a fetch that dies part-way through cannot truncate the working
+# binary already on PATH.
+fetch_bin_from_tar() {
+	url="$1"
+	member="$2"
+	name="${3:-$(basename "$member")}"
+
+	env_init
+	tmp="$(mktemp -d)"
+	log_dim "  fetching ${url##*/}"
+	if ! fetch_to_file "$url" "$tmp/archive.tar.gz"; then
+		rm -rf "$tmp"
+		return 1
+	fi
+	if ! tar -C "$tmp" -xzf "$tmp/archive.tar.gz" "$member"; then
+		log_err "$member is not in ${url##*/}"
+		rm -rf "$tmp"
+		return 1
+	fi
+
+	install -m 0755 "$tmp/$member" "$DVB_BIN/$name"
+	status=$?
+	rm -rf "$tmp"
+	[ "$status" -eq 0 ] && [ -x "$DVB_BIN/$name" ]
+}
