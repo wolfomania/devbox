@@ -39,8 +39,8 @@ script = "modules/lang/go.sh"
 default = false
 required = false
 needs_root = false
-pin = "1.26.4"
-pin_kind = "tarball"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 260
 
 [[module]]
@@ -51,8 +51,8 @@ script = "modules/lang/rust.sh"
 default = false
 required = false
 needs_root = false
-pin = "1.96.1"
-pin_kind = "rustup"
+pin = "stable"
+pin_kind = "major-line"
 size_mb = 900
 
 [[module]]

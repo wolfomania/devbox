@@ -2,6 +2,12 @@
 # Go from the official tarball, unpacked under $HOME rather than /usr/local,
 # so the module needs no root.
 #
+# MOD_PIN is either "latest", which is what the manifest says, or an exact
+# version to hold at. Go publishes its newest release as one line of plain
+# text at go.dev/VERSION, which is the only way to ask for the newest one:
+# the download URLs all name a version, and there is no redirect that fills
+# it in.
+#
 #   modules/lang/go.sh check | install | version
 . "$(dirname -- "$0")/../../lib/module.sh"
 
@@ -10,9 +16,27 @@ dvb_check() {
 	go version 2>/dev/null | awk '{print "go", substr($3, 3)}'
 }
 
+# "go1.27.1", whether that came from the manifest or from go.dev.
+go_release() {
+	if [ "$MOD_PIN" != "latest" ]; then
+		printf 'go%s\n' "$MOD_PIN"
+		return 0
+	fi
+
+	release="$(fetch_to_stdout "https://go.dev/VERSION?m=text" | head -1)"
+	case "$release" in
+		go[0-9]*) printf '%s\n' "$release" ;;
+		*)
+			log_err "go.dev/VERSION did not answer with a version"
+			return 1
+			;;
+	esac
+}
+
 dvb_install() {
 	env_init
-	tarball="go${MOD_PIN}.linux-${DVB_ARCH}.tar.gz"
+	release="$(go_release)" || return 1
+	tarball="${release}.linux-${DVB_ARCH}.tar.gz"
 	tmp="$(mktemp -d)"
 
 	log_dim "  fetching $tarball"
