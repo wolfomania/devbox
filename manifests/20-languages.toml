@@ -10,14 +10,14 @@ order = 20
 [[module]]
 id = "python"
 name = "Python"
-summary = "uv, the resolver and version manager; installs to ~/.local/bin"
+summary = "CPython, installed and managed by uv; python3 on PATH"
 script = "modules/lang/python.sh"
 default = false
 required = false
 needs_root = false
-pin = "0.11.26"
-pin_kind = "script"
-size_mb = 50
+pin = "3.14"
+pin_kind = "major-line"
+size_mb = 200
 
 [[module]]
 id = "node"
