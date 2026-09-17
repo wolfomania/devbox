@@ -41,43 +41,65 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 
 ## Modules
 
-| Category | Module | Selection | Root | Installs |
-|---|---|---|---|---|
-| System | `swap` | default | yes | a swapfile, on a box under 2 GiB of memory |
-| Core | `base` | required | yes | gcc, make, curl, wget, unzip, ca-certificates |
-| Core | `git` | required | yes | Git |
-| Core | `gh` | optional | yes | GitHub CLI |
-| Core | `cli` | optional | yes | ripgrep, jq, fzf, tmux, htop, tree |
-| Languages | `python` | optional | no | uv |
-| Languages | `node` | optional | no | nvm, Node.js |
-| Languages | `go` | optional | no | Go |
-| Languages | `rust` | optional | no | rustup, Cargo, Clippy, rustfmt |
-| Languages | `java` | optional | yes | OpenJDK |
-| Languages | `ruby` | optional | yes | Ruby, gem, rake, Bundler |
-| Languages | `pnpm` | optional | no | pnpm |
-| Tools | `editors` | optional | yes | Neovim |
-| Tools | `db` | optional | yes | psql, sqlite3 |
-| Tools | `shelltools` | optional | yes | shellcheck, bat, fd, delta, direnv, hyperfine, shfmt |
-| Tools | `lazygit` | optional | no | lazygit |
-| Tools | `just` | optional | no | just |
-| Tools | `yq` | optional | no | yq |
-| DevOps | `docker` | optional | yes | Docker Engine, Compose plugin |
-| DevOps | `modal` | optional | no | Modal CLI; requires `python` |
-| DevOps | `aws` | optional | no | AWS CLI v2; needs unzip |
-| DevOps | `gcloud` | optional | yes | Google Cloud CLI |
-| DevOps | `supabase` | optional | no | Supabase CLI |
-| DevOps | `vercel` | optional | no | Vercel CLI; requires `node` |
-| DevOps | `kubectl` | optional | yes | kubectl |
-| DevOps | `helm` | optional | no | Helm |
-| DevOps | `terraform` | optional | yes | Terraform (BUSL 1.1) |
-| DevOps | `opentofu` | optional | no | OpenTofu (`tofu`) |
-| AI agents | `claude-code` | optional | no | Claude Code |
-| AI agents | `codex` | optional | no | Codex CLI; requires `node` |
-| Documents | `latex` | optional | yes | TeX Live, latexmk |
+| Category | Module | Selection | Root | Channel | Installs |
+|---|---|---|---|---|---|
+| System | `swap` | default | yes | `none` | a swapfile, on a box under 2 GiB of memory |
+| Core | `base` | required | yes | `apt` | gcc, make, curl, wget, unzip, ca-certificates |
+| Core | `git` | required | yes | `apt` | Git |
+| Core | `gh` | optional | yes | `apt-vendor` | GitHub CLI |
+| Core | `cli` | optional | yes | `mixed` | ripgrep, jq, fzf, tmux, htop, tree |
+| Languages | `python` | optional | no | `script` | uv, and CPython 3.14 with `python3` on PATH |
+| Languages | `node` | optional | yes | `apt-vendor` | Node.js 24, npm |
+| Languages | `go` | optional | no | `release` | Go |
+| Languages | `rust` | optional | no | `script` | rustup, Cargo, Clippy, rustfmt |
+| Languages | `java` | optional | yes | `apt-vendor` | Eclipse Temurin JDK 25 |
+| Languages | `ruby` | optional | yes | `apt` | Ruby, gem, rake, Bundler |
+| Languages | `pnpm` | optional | no | `script` | pnpm |
+| Tools | `editors` | optional | no | `release` | Neovim |
+| Tools | `db` | optional | yes | `apt` | psql, sqlite3 |
+| Tools | `shelltools` | optional | yes | `mixed` | shellcheck, bat, fd, delta, direnv, hyperfine, shfmt |
+| Tools | `lazygit` | optional | no | `release` | lazygit |
+| Tools | `just` | optional | no | `release` | just |
+| Tools | `yq` | optional | no | `release` | yq |
+| DevOps | `docker` | optional | yes | `apt-vendor` | Docker Engine, Buildx, Compose |
+| DevOps | `modal` | optional | no | `uv` | Modal CLI; requires `python` |
+| DevOps | `aws` | optional | no | `script` | AWS CLI v2; needs unzip |
+| DevOps | `gcloud` | optional | yes | `apt-vendor` | Google Cloud CLI |
+| DevOps | `supabase` | optional | no | `release` | Supabase CLI |
+| DevOps | `vercel` | optional | no | `npm` | Vercel CLI; requires `node` |
+| DevOps | `kubectl` | optional | yes | `apt-vendor` | kubectl |
+| DevOps | `k9s` | optional | no | `release` | k9s, a terminal UI for Kubernetes |
+| DevOps | `helm` | optional | no | `release` | Helm |
+| DevOps | `terraform` | optional | yes | `apt-vendor` | Terraform (BUSL 1.1) |
+| DevOps | `opentofu` | optional | no | `release` | OpenTofu (`tofu`) |
+| AI agents | `claude-code` | optional | no | `apt-vendor` | Claude Code |
+| AI agents | `codex` | optional | no | `npm` | Codex CLI; requires `node` |
+| Documents | `latex` | optional | yes | `apt` | TeX Live, latexmk |
 
 Only the required modules are ticked when the screen opens, plus `swap` on
-a box with too little memory to build on. Space ticks the rest. Versions
-and dependencies are defined in [`manifests/`](manifests).
+a box with too little memory to build on. Space ticks the rest. Versions,
+channels and dependencies are defined in [`manifests/`](manifests).
+
+## Versions and channels
+
+Language runtimes track a major line and let the patch releases float.
+Python is pinned to 3.14, Node to 24, Java to Temurin 25, Rust to `stable`;
+Go takes whatever go.dev currently calls the newest release. Nothing else
+is pinned to a version: every other module installs the latest release.
+
+Where a module installs from is recorded as its channel, and chosen in this
+order:
+
+| Channel | When |
+|---|---|
+| `apt` | Ubuntu's own package is within about a release of upstream, or the tool is a system dependency. |
+| `apt-vendor` | The project publishes its own apt repository. apt then keeps the tool current with no further help. |
+| `release` | apt is a major version or more behind, and the tool is a self-contained binary or tree. |
+| `script`, `npm`, `uv` | The tool's own installer or language package manager is the only supported path. |
+| `mixed` | A bundle whose parts do not all come from the same place. |
+
+Snap is not used. snapd needs systemd and, in practice, a privileged
+container, so a snap module could not be tested by `./tests/modules/run.sh`.
 
 ## Options
 
@@ -138,7 +160,7 @@ Module scripts support:
 
 To add a module:
 
-1. Add a `[[module]]` entry under `manifests/`.
+1. Add a `[[module]]` entry under `manifests/`, with its `pin` and `channel`.
 2. Add its script under `modules/`.
 3. Define `dvb_check` and `dvb_install` using `lib/module.sh`.
 4. Use `pkg_install` for system packages and `env_add` for PATH entries.
