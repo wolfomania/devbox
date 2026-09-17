@@ -14,8 +14,14 @@ import glyphs
 import manifest as manifest_mod
 
 # Layout constants, all in terminal cells.
-HEADER_LINES = 3
-FOOTER_LINES = 3
+#
+# The header carries the name, the machine, the line that says what Enter
+# would install, and a rule. That line used to sit in the footer, where the
+# eye lands last and, on a full screen, often not at all; it answers the only
+# question the screen exists to answer, so it goes under the machine.
+HEADER_LINES = 4
+# Rule and key hints.
+FOOTER_LINES = 2
 CURSOR_COLUMN = 1
 MARK_COLUMN = 3
 # One cell of gutter after the checkbox.
@@ -255,10 +261,29 @@ class Screen:
             return module.pin, PAIR_DIM
         return "", PAIR_DIM
 
-    def draw_header(self, win, width):
+    def summary(self):
+        """What Enter would do, in the words the boxes use.
+
+        The screen is a checklist: Space ticks a row, Enter installs every
+        ticked row. People read the cursor as the selection and press Enter on
+        the row they want, so this names the number of ticks instead.
+        """
+        pending = self.pending_ids()
+        if not pending:
+            return "nothing ticked %s space ticks the row under the cursor" % self.glyph["dot"]
+        return "enter installs the %d ticked %s %s to download" % (
+            len(pending),
+            self.glyph["dot"],
+            human_size(self.pending_size()),
+        )
+
+    def draw_header(self, win, width, summary=""):
         win.addnstr(0, 1, "devbox", width - 2, curses.color_pair(PAIR_TITLE) | curses.A_BOLD)
         win.addnstr(1, 1, self.machine, width - 2, curses.color_pair(PAIR_DIM))
-        win.addnstr(2, 1, self.glyph["rule"] * max(0, width - 2), width - 2, curses.color_pair(PAIR_DIM))
+        if summary:
+            win.addnstr(2, 1, summary, width - 2, curses.color_pair(PAIR_TITLE))
+        win.addnstr(HEADER_LINES - 1, 1, self.glyph["rule"] * max(0, width - 2),
+                    width - 2, curses.color_pair(PAIR_DIM))
 
     def hidden_counts(self, list_height):
         """Module rows scrolled off the top and off the bottom."""
@@ -312,24 +337,9 @@ class Screen:
             win.addnstr(y, column, detail, width - column - 2, curses.color_pair(PAIR_DIM))
 
     def draw_footer(self, win, height, width):
-        """Say what Enter will do, in the words the boxes use.
-
-        The screen is a checklist: Space ticks a row, Enter installs every
-        ticked row. People read the cursor as the selection and press Enter on
-        the row they want, so the footer names the number of ticks instead.
-        """
-        pending = self.pending_ids()
-        summary = "enter installs the %d ticked %s %s to download" % (
-            len(pending),
-            self.glyph["dot"],
-            human_size(self.pending_size()),
-        )
-        if not pending:
-            summary = "nothing ticked %s space ticks the row under the cursor" % self.glyph["dot"]
-
         keys = "up/down move  space tick  a all  n none  d reset  enter install  q quit"
-        win.addnstr(height - 3, 1, self.glyph["rule"] * max(0, width - 2), width - 2, curses.color_pair(PAIR_DIM))
-        win.addnstr(height - 2, 1, summary, width - 2, curses.color_pair(PAIR_TITLE))
+        win.addnstr(height - FOOTER_LINES, 1, self.glyph["rule"] * max(0, width - 2),
+                    width - 2, curses.color_pair(PAIR_DIM))
         win.addnstr(height - 1, 1, keys, width - 2, curses.color_pair(PAIR_DIM))
 
     def draw_confirm(self, win, ids):
@@ -367,7 +377,7 @@ class Screen:
         height, width = win.getmaxyx()
         list_height = max(1, height - HEADER_LINES - FOOTER_LINES)
 
-        self.draw_header(win, width)
+        self.draw_header(win, width, self.summary())
         self._scroll_into_view(list_height)
 
         for offset in range(list_height):
@@ -378,8 +388,8 @@ class Screen:
 
         self.draw_footer(win, height, width)
         above, below = self.hidden_counts(list_height)
-        self.draw_scroll_hint(win, 2, width, above, "more_up")
-        self.draw_scroll_hint(win, height - 3, width, below, "more_down")
+        self.draw_scroll_hint(win, HEADER_LINES - 1, width, above, "more_up")
+        self.draw_scroll_hint(win, height - FOOTER_LINES, width, below, "more_down")
         win.refresh()
 
     # -- main loop ----------------------------------------------------------

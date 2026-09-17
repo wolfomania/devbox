@@ -132,7 +132,9 @@ class SelectionScreenTest(unittest.TestCase):
         self.assertIn("[x]", result.screen)
         self.assertIn("[ ]", result.screen)
 
-    def test_the_footer_says_how_many_ticked_rows_enter_installs(self):
+    def test_the_header_says_how_many_ticked_rows_enter_installs(self):
+        """It sits under the machine line, at the top: the footer of a full
+        screen is where this went unread."""
         result = drive.run(["q"])
         self.assertIn("enter installs the %d ticked" % len(DEFAULTS), result.screen)
 
