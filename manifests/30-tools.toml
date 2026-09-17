@@ -10,14 +10,14 @@ order = 30
 [[module]]
 id = "editors"
 name = "Neovim"
-summary = "neovim, with no configuration imposed"
+summary = "neovim, from its own release, with no configuration imposed"
 script = "modules/optional/editors.sh"
 default = false
 required = false
-needs_root = true
-pin = "apt"
-pin_kind = "apt"
-size_mb = 45
+needs_root = false
+pin = "latest"
+pin_kind = "latest"
+size_mb = 55
 
 [[module]]
 id = "db"
