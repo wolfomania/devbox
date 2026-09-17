@@ -22,14 +22,13 @@ size_mb = 200
 [[module]]
 id = "node"
 name = "Node.js"
-summary = "nvm plus a pinned node release; installs to ~/.nvm"
+summary = "node and npm, from NodeSource's apt repository"
 script = "modules/lang/node.sh"
 default = false
 required = false
-needs_root = false
-pin = "24.18.0"
-pin_kind = "nvm"
-pin_extra = "0.40.1"  # nvm itself
+needs_root = true
+pin = "24"
+pin_kind = "major-line"
 size_mb = 120
 
 [[module]]
