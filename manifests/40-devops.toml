@@ -94,6 +94,18 @@ pin_kind = "apt"
 size_mb = 61
 
 [[module]]
+id = "k9s"
+name = "k9s"
+summary = "a terminal UI for Kubernetes clusters"
+script = "modules/optional/k9s.sh"
+default = false
+required = false
+needs_root = false
+pin = "latest"
+pin_kind = "latest"
+size_mb = 95
+
+[[module]]
 id = "helm"
 name = "Helm"
 summary = "the Kubernetes package manager, from the official tarball"
