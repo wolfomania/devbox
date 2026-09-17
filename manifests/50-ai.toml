@@ -10,13 +10,13 @@ order = 50
 [[module]]
 id = "claude-code"
 name = "Claude Code"
-summary = "Anthropic's terminal agent; can also install the bundled plugin"
+summary = "Anthropic's terminal agent, from its apt repository"
 script = "modules/optional/claude-code.sh"
 default = false
 required = false
 needs_root = false
-pin = "latest"
-pin_kind = "script"
+pin = "stable"
+pin_kind = "channel"
 size_mb = 220
 
 [[module]]
