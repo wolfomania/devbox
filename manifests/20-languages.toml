@@ -58,13 +58,13 @@ size_mb = 900
 [[module]]
 id = "java"
 name = "Java"
-summary = "OpenJDK headless JDK"
+summary = "Eclipse Temurin JDK, from Adoptium's apt repository"
 script = "modules/lang/java.sh"
 default = false
 required = false
 needs_root = true
-pin = "21"
-pin_kind = "apt"
+pin = "25"
+pin_kind = "major-line"
 size_mb = 320
 
 [[module]]
