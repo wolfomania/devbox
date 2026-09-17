@@ -22,14 +22,26 @@ import manifest as manifest_mod
 HEADER_LINES = 4
 # Rule and key hints.
 FOOTER_LINES = 2
-CURSOR_COLUMN = 1
-MARK_COLUMN = 3
-# One cell of gutter after the checkbox.
-NAME_START = MARK_COLUMN + glyphs.MARKER_WIDTH + 1
-NAME_COLUMN = 18
+
+# One module row inside a column: the cursor, the checkbox, the name, and
+# whatever version the module is pinned to or already carries.
+CURSOR_OFFSET = 0
+MARK_OFFSET = 2
+NAME_OFFSET = MARK_OFFSET + glyphs.MARKER_WIDTH + 1
+NAME_WIDTH = 20
+# A column has to hold the longest name and a version beside it, and two of
+# them have to fit across an 80-column terminal.
+MIN_COLUMN_WIDTH = NAME_OFFSET + NAME_WIDTH + 8
+MAX_COLUMN_WIDTH = 42
+MAX_COLUMNS = 4
+
+# The confirmation is a single list, not a grid: name, download size, then the
+# description the grid has no room for.
+CONFIRM_INDENT = 2
+SIZE_WIDTH = 9
 # Rule, download size and key hints under the confirmation list.
 CONFIRM_FOOTER_LINES = 3
-STATUS_COLUMN = 26
+
 MB_PER_GB = 1024
 
 PAIR_DEFAULT = 0
@@ -73,15 +85,6 @@ ESC_SEQUENCES = {
 
 
 @dataclass
-class Row:
-    """One line in the list: either a category heading or a module."""
-
-    kind: str
-    label: str
-    module: object = None
-
-
-@dataclass
 class ModuleState:
     """Everything the screen needs to know about one module's current status."""
 
@@ -89,6 +92,17 @@ class ModuleState:
     version: str
     available: bool
     reason: str
+
+
+@dataclass(frozen=True)
+class Cell:
+    """One line inside a column: a category heading, a module, or a gap."""
+
+    kind: str
+    label: str = ""
+    # Where the module sits in the catalogue. The cursor is this number, so
+    # moving down a column and on to the top of the next is a single step.
+    index: int = -1
 
 
 def read_states(path, catalogue, can_root):
@@ -122,21 +136,12 @@ def initial_selection(catalogue, states):
     return chosen
 
 
-def build_rows(catalogue):
-    rows = []
-    for category in catalogue.categories:
-        rows.append(Row(kind="header", label=category.title.upper()))
-        for module in catalogue.in_category(category.id):
-            rows.append(Row(kind="module", label=module.name, module=module))
-    return rows
-
-
 def fit(text, width):
     """Pad or truncate to exactly `width` cells, leaving one cell of gutter."""
     if width <= 1:
         return " " * max(0, width)
     if len(text) > width - 1:
-        return text[: width - 2] + "\u2026 "
+        return text[: width - 2] + "… "
     return text.ljust(width)
 
 
@@ -146,43 +151,175 @@ def human_size(total_mb):
     return "%d MB" % total_mb
 
 
+# -- layout -----------------------------------------------------------------
+
+
+class Layout:
+    """The catalogue arranged into columns, for one terminal size."""
+
+    def __init__(self, columns, visible, width, height):
+        self.columns = columns
+        # Columns the terminal has room for. There can be more than this, and
+        # then the screen pages sideways.
+        self.visible = visible
+        self.width = width
+        self.height = height
+        self.positions = {
+            cell.index: (number, line)
+            for number, column in enumerate(columns)
+            for line, cell in enumerate(column)
+            if cell.kind == "module"
+        }
+
+    def position(self, index):
+        """Where a module sits, as (column, line)."""
+        return self.positions.get(index, (0, 0))
+
+    def column_of(self, index):
+        return self.position(index)[0]
+
+    def modules_in(self, number):
+        """Catalogue positions of the modules in one column, top to bottom."""
+        if not 0 <= number < len(self.columns):
+            return ()
+        return tuple(c.index for c in self.columns[number] if c.kind == "module")
+
+    def nearest(self, number, line):
+        """The module in this column closest to `line`, or None if it has none."""
+        if not self.columns:
+            return None
+        number = max(0, min(number, len(self.columns) - 1))
+        best = None
+        for offset, cell in enumerate(self.columns[number]):
+            if cell.kind != "module":
+                continue
+            distance = abs(offset - line)
+            if best is None or distance < best[0]:
+                best = (distance, cell.index)
+        return best[1] if best else None
+
+    @property
+    def page(self):
+        """Modules on screen at once: how far one page key moves the cursor."""
+        return max(1, sum(len(self.modules_in(n)) for n in range(self.visible)))
+
+
+def column_geometry(width):
+    """How many columns fit across this terminal, and how wide each one is."""
+    room = max(1, width - 2)
+    count = max(1, min(MAX_COLUMNS, room // MIN_COLUMN_WIDTH))
+    return count, min(MAX_COLUMN_WIDTH, room // count)
+
+
+def build_blocks(catalogue):
+    """One block per category: its heading, then its modules, in order."""
+    position = {module.id: index for index, module in enumerate(catalogue.modules)}
+    blocks = []
+    for category in catalogue.categories:
+        cells = [Cell("header", category.title.upper())]
+        for module in catalogue.in_category(category.id):
+            cells.append(Cell("module", module.name, position[module.id]))
+        blocks.append(tuple(cells))
+    return tuple(blocks)
+
+
+def flow(blocks, height):
+    """Pour the category blocks into columns of at most `height` lines.
+
+    A category stays whole, in one column, with a blank line between it and
+    the category above it. One too tall for a column is the only thing that
+    gets split, and then only because it has to be.
+    """
+    columns = [[]]
+    for block in blocks:
+        current = columns[-1]
+        if current and len(current) + 1 + len(block) > height:
+            columns.append([])
+        elif current:
+            current.append(Cell("blank"))
+        for cell in block:
+            if len(columns[-1]) >= height:
+                columns.append([])
+            columns[-1].append(cell)
+    return tuple(tuple(column) for column in columns)
+
+
+def build_layout(catalogue, width, height):
+    """Arrange the catalogue for a terminal of this size.
+
+    Columns are made no taller than they need to be, so a catalogue that fits
+    the screen is spread evenly across it rather than stacked into one full
+    column and a stub of a second. A catalogue that does not fit runs its
+    columns to the full height, and the screen pages sideways instead.
+    """
+    blocks = build_blocks(catalogue)
+    count, column_width = column_geometry(width)
+    total = sum(len(block) for block in blocks) + max(0, len(blocks) - 1)
+    even = max(1, -(-total // count))
+
+    columns = flow(blocks, height)
+    for trial in range(min(even, height), height):
+        candidate = flow(blocks, trial)
+        if len(candidate) <= count:
+            columns = candidate
+            break
+    return Layout(columns, count, column_width, height)
+
+
 class Screen:
     def __init__(self, catalogue, states, machine, out_path):
         self.catalogue = catalogue
         self.states = states
         self.machine = machine
         self.out_path = out_path
-        self.rows = build_rows(catalogue)
+        self.modules = list(catalogue.modules)
         self.selected = initial_selection(catalogue, states)
         self.glyph = glyphs.pick()
-        self.cursor = self._first_module_row()
-        self.top = 0
+        # The cursor is a position in the catalogue; the layout says where on
+        # screen that lands.
+        self.cursor = 0
+        # Leftmost column on screen, and the first line of the confirmation
+        # list, for the catalogues too big to show at once.
+        self.left = 0
+        self.confirm_top = 0
         self.confirmed = False
+        self._layout = None
+
+    # -- layout -------------------------------------------------------------
+
+    def layout(self, win):
+        """The column arrangement for the terminal as it is right now."""
+        height, width = win.getmaxyx()
+        list_height = max(1, height - HEADER_LINES - FOOTER_LINES)
+        key = (width, list_height)
+        if self._layout is None or self._layout[0] != key:
+            self._layout = (key, build_layout(self.catalogue, width, list_height))
+        return self._layout[1]
 
     # -- navigation ---------------------------------------------------------
 
-    def _first_module_row(self):
-        for index, row in enumerate(self.rows):
-            if row.kind == "module":
-                return index
-        return 0
+    def move(self, delta):
+        """Along the catalogue, which is also the order the columns read in:
+        down a column, then on to the top of the next."""
+        self.cursor = max(0, min(self.cursor + delta, len(self.modules) - 1))
 
-    def move(self, delta, height):
-        index = self.cursor
-        while True:
-            index += delta
-            if index < 0 or index >= len(self.rows):
-                return
-            if self.rows[index].kind == "module":
-                break
-        self.cursor = index
-        self._scroll_into_view(height)
+    def move_column(self, delta, layout):
+        number, line = layout.position(self.cursor)
+        target = layout.nearest(number + delta, line)
+        if target is not None:
+            self.cursor = target
 
-    def _scroll_into_view(self, height):
-        if self.cursor < self.top:
-            self.top = self.cursor
-        elif self.cursor >= self.top + height:
-            self.top = self.cursor - height + 1
+    def jump(self, to_end):
+        self.cursor = len(self.modules) - 1 if to_end else 0
+
+    def scroll_into_view(self, layout):
+        number = layout.column_of(self.cursor)
+        if number < self.left:
+            self.left = number
+        elif number >= self.left + layout.visible:
+            self.left = number - layout.visible + 1
+        last_start = max(0, len(layout.columns) - layout.visible)
+        self.left = max(0, min(self.left, last_start))
 
     # -- selection ----------------------------------------------------------
 
@@ -203,6 +340,10 @@ class Screen:
             self.selected.discard(module_id)
         else:
             self.selected.add(module_id)
+
+    def toggle_cursor_row(self):
+        if 0 <= self.cursor < len(self.modules):
+            self.toggle(self.modules[self.cursor].id)
 
     def set_all(self, value):
         for module in self.catalogue.modules:
@@ -265,8 +406,8 @@ class Screen:
         """What Enter would do, in the words the boxes use.
 
         The screen is a checklist: Space ticks a row, Enter installs every
-        ticked row. People read the cursor as the selection and press Enter on
-        the row they want, so this names the number of ticks instead.
+        ticked row. People read the cursor as the selection and press Enter
+        on the row they want, so this names the number of ticks instead.
         """
         pending = self.pending_ids()
         if not pending:
@@ -285,155 +426,140 @@ class Screen:
         win.addnstr(HEADER_LINES - 1, 1, self.glyph["rule"] * max(0, width - 2),
                     width - 2, curses.color_pair(PAIR_DIM))
 
-    def hidden_counts(self, list_height):
-        """Module rows scrolled off the top and off the bottom."""
-        above = sum(1 for row in self.rows[: self.top] if row.kind == "module")
-        below = sum(1 for row in self.rows[self.top + list_height:] if row.kind == "module")
-        return above, below
-
-    def draw_scroll_hint(self, win, y, width, count, glyph_name):
-        """Write "N more" over the right end of a rule line.
-
-        The list is routinely taller than the terminal, and a list that gives
-        no sign of continuing reads as the whole catalogue.
-        """
-        if count <= 0:
-            return
-        hint = " %s %d more " % (self.glyph[glyph_name], count)
-        column = width - 2 - len(hint)
-        if column > 1:
-            win.addnstr(y, column, hint, len(hint), curses.color_pair(PAIR_TITLE))
-
-    def draw_row(self, win, y, index, width):
-        row = self.rows[index]
-        if row.kind == "header":
-            win.addnstr(y, 2, row.label, width - 4, curses.color_pair(PAIR_TITLE) | curses.A_BOLD)
-            return
-
-        module = row.module
-        is_cursor = index == self.cursor
-        mark, mark_pair = self.marker(module)
-        status, status_pair = self.status_text(module)
-
-        if is_cursor:
-            win.addnstr(y, CURSOR_COLUMN, self.glyph["cursor"], 1, curses.color_pair(PAIR_CURSOR) | curses.A_BOLD)
-        win.addnstr(y, MARK_COLUMN, mark, glyphs.MARKER_WIDTH, curses.color_pair(mark_pair) | curses.A_BOLD)
-
-        # Every field is padded to its full width and written as literal cells,
-        # so column alignment never depends on what the terminal left behind.
-        name_attr = curses.A_BOLD if is_cursor else curses.A_NORMAL
-        win.addnstr(y, NAME_START, fit(module.name, NAME_COLUMN), NAME_COLUMN, name_attr)
-
-        column = NAME_START + NAME_COLUMN
-        if column < width - 2:
-            limit = min(STATUS_COLUMN, width - column - 2)
-            win.addnstr(y, column, fit(status, limit), limit, curses.color_pair(status_pair))
-
-        column += STATUS_COLUMN
-        if column < width - 4:
-            detail = module.summary
-            if module.size_mb and self.states[module.id].status != manifest_mod.STATUS_INSTALLED:
-                detail = "%s %s %s" % (human_size(module.size_mb), self.glyph["dot"], detail)
-            win.addnstr(y, column, detail, width - column - 2, curses.color_pair(PAIR_DIM))
-
     def draw_footer(self, win, height, width):
-        keys = "up/down move  space tick  a all  n none  d reset  enter install  q quit"
+        keys = "arrows move  space tick  a all  n none  d reset  enter install  q quit"
         win.addnstr(height - FOOTER_LINES, 1, self.glyph["rule"] * max(0, width - 2),
                     width - 2, curses.color_pair(PAIR_DIM))
         win.addnstr(height - 1, 1, keys, width - 2, curses.color_pair(PAIR_DIM))
 
-    def draw_confirm(self, win, ids):
-        """The install list, spelled out, with nothing else on the screen."""
-        win.erase()
-        height, width = win.getmaxyx()
-        self.draw_header(win, width)
+    def draw_module(self, win, y, x, index, column_width):
+        """One module: checkbox, name, version. No description.
 
-        title = "Install these %d modules:" % len(ids)
-        win.addnstr(HEADER_LINES, 1, title, width - 2, curses.color_pair(PAIR_TITLE) | curses.A_BOLD)
+        The description is what made this a one-module-per-line list, and a
+        one-module-per-line list is what made the catalogue three screens
+        tall. It is spelled out on the confirmation instead, where there is
+        room for it and where it is read before anything is installed.
+        """
+        module = self.modules[index]
+        is_cursor = index == self.cursor
+        mark, mark_pair = self.marker(module)
 
-        top = HEADER_LINES + 1
-        room = max(1, height - top - CONFIRM_FOOTER_LINES)
-        shown = ids if len(ids) <= room else ids[: room - 1]
-        for offset, module_id in enumerate(shown):
-            module = self.catalogue.by_id(module_id)
-            size = human_size(module.size_mb) if module.size_mb else ""
-            line = "  %s%s" % (fit(module.name, NAME_COLUMN), size)
-            win.addnstr(top + offset, 1, line, width - 2)
-        if len(shown) < len(ids):
-            win.addnstr(top + len(shown), 1, "  and %d more" % (len(ids) - len(shown)),
-                        width - 2, curses.color_pair(PAIR_DIM))
+        if is_cursor:
+            win.addnstr(y, x + CURSOR_OFFSET, self.glyph["cursor"], 1,
+                        curses.color_pair(PAIR_CURSOR) | curses.A_BOLD)
+        win.addnstr(y, x + MARK_OFFSET, mark, glyphs.MARKER_WIDTH,
+                    curses.color_pair(mark_pair) | curses.A_BOLD)
 
-        total = sum(self.catalogue.by_id(i).size_mb for i in ids)
-        win.addnstr(height - 3, 1, self.glyph["rule"] * max(0, width - 2), width - 2,
-                    curses.color_pair(PAIR_DIM))
-        win.addnstr(height - 2, 1, "%s to download" % human_size(total), width - 2,
-                    curses.color_pair(PAIR_TITLE))
-        win.addnstr(height - 1, 1, "y installs  any other key goes back", width - 2,
-                    curses.color_pair(PAIR_DIM))
-        win.refresh()
+        # Every field is padded to its full width and written as literal
+        # cells, so column alignment never depends on what the terminal left
+        # behind.
+        name_attr = curses.A_BOLD if is_cursor else curses.A_NORMAL
+        win.addnstr(y, x + NAME_OFFSET, fit(module.name, NAME_WIDTH), NAME_WIDTH, name_attr)
+
+        status, status_pair = self.status_text(module)
+        room = column_width - NAME_OFFSET - NAME_WIDTH
+        if status and room > 1:
+            win.addnstr(y, x + NAME_OFFSET + NAME_WIDTH, fit(status, room), room,
+                        curses.color_pair(status_pair))
+
+    def draw_grid(self, win, layout):
+        for offset in range(layout.visible):
+            number = self.left + offset
+            if number >= len(layout.columns):
+                break
+            x = 1 + offset * layout.width
+            for line, cell in enumerate(layout.columns[number]):
+                y = HEADER_LINES + line
+                if cell.kind == "header":
+                    room = layout.width - MARK_OFFSET
+                    win.addnstr(y, x + MARK_OFFSET, fit(cell.label, room), room,
+                                curses.color_pair(PAIR_TITLE) | curses.A_BOLD)
+                elif cell.kind == "module":
+                    self.draw_module(win, y, x, cell.index, layout.width)
+
+    def hidden_counts(self, layout):
+        """Modules in the columns off the left and off the right of the screen."""
+        before = sum(len(layout.modules_in(n)) for n in range(self.left))
+        after = sum(len(layout.modules_in(n))
+                    for n in range(self.left + layout.visible, len(layout.columns)))
+        return before, after
+
+    def draw_hint(self, win, y, column, text):
+        if column > 1:
+            win.addnstr(y, column, text, len(text), curses.color_pair(PAIR_TITLE))
+
+    def draw_column_hints(self, win, y, width, layout):
+        """Write "N more" over the ends of a rule line.
+
+        The catalogue is routinely wider than the terminal, and a grid that
+        gives no sign of continuing reads as the whole catalogue.
+        """
+        before, after = self.hidden_counts(layout)
+        if before:
+            self.draw_hint(win, y, 2, " %s %d more " % (self.glyph["more_left"], before))
+        if after:
+            hint = " %d more %s " % (after, self.glyph["more_right"])
+            self.draw_hint(win, y, width - 2 - len(hint), hint)
 
     def draw(self, win):
         win.erase()
         height, width = win.getmaxyx()
-        list_height = max(1, height - HEADER_LINES - FOOTER_LINES)
+        layout = self.layout(win)
+        self.scroll_into_view(layout)
 
         self.draw_header(win, width, self.summary())
-        self._scroll_into_view(list_height)
-
-        for offset in range(list_height):
-            index = self.top + offset
-            if index >= len(self.rows):
-                break
-            self.draw_row(win, HEADER_LINES + offset, index, width)
-
+        self.draw_grid(win, layout)
         self.draw_footer(win, height, width)
-        above, below = self.hidden_counts(list_height)
-        self.draw_scroll_hint(win, HEADER_LINES - 1, width, above, "more_up")
-        self.draw_scroll_hint(win, height - FOOTER_LINES, width, below, "more_down")
+        self.draw_column_hints(win, height - FOOTER_LINES, width, layout)
         win.refresh()
 
-    # -- main loop ----------------------------------------------------------
+    # -- the confirmation ---------------------------------------------------
 
-    def toggle_cursor_row(self):
-        row = self.rows[self.cursor]
-        if row.kind == "module":
-            self.toggle(row.module.id)
+    def draw_confirm_row(self, win, y, width, module):
+        size = human_size(module.size_mb) if module.size_mb else ""
+        win.addnstr(y, CONFIRM_INDENT, fit(module.name, NAME_WIDTH), NAME_WIDTH, curses.A_BOLD)
+        win.addnstr(y, CONFIRM_INDENT + NAME_WIDTH, fit(size, SIZE_WIDTH), SIZE_WIDTH,
+                    curses.color_pair(PAIR_DIM))
+        column = CONFIRM_INDENT + NAME_WIDTH + SIZE_WIDTH
+        room = width - column - 1
+        if module.summary and room > 1:
+            win.addnstr(y, column, fit(module.summary, room), room,
+                        curses.color_pair(PAIR_DIM))
 
-    def jump(self, to_end, height):
-        indices = [i for i, row in enumerate(self.rows) if row.kind == "module"]
-        if not indices:
-            return
-        self.cursor = indices[-1] if to_end else indices[0]
-        self._scroll_into_view(height)
+    def draw_confirm(self, win, ids):
+        """The install list, spelled out, with nothing else on the screen.
 
-    def handle_key(self, key, list_height):
-        if key in (curses.KEY_UP, ord("k")):
-            self.move(-1, list_height)
-        elif key in (curses.KEY_DOWN, ord("j")):
-            self.move(1, list_height)
-        elif key in (curses.KEY_PPAGE,):
-            for _ in range(list_height):
-                self.move(-1, list_height)
-        elif key in (curses.KEY_NPAGE,):
-            for _ in range(list_height):
-                self.move(1, list_height)
-        elif key in (curses.KEY_HOME, ord("g")):
-            self.jump(False, list_height)
-        elif key in (curses.KEY_END, ord("G")):
-            self.jump(True, list_height)
-        elif key in (ord(" "), curses.KEY_RIGHT, curses.KEY_LEFT):
-            self.toggle_cursor_row()
-        elif key in (ord("a"), ord("A")):
-            self.set_all(True)
-        elif key in (ord("n"), ord("N")):
-            self.set_all(False)
-        elif key in (ord("d"), ord("D")):
-            self.reset_defaults()
-        elif key == curses.KEY_MOUSE:
-            self.handle_mouse(list_height)
-        elif key in (ord("q"), ord("Q"), KEY_ESCAPE):
-            return False
-        return True
+        This is where the descriptions live. The grid shows names and
+        versions so that it can show the whole catalogue at once; the page
+        that asks for a yes has the room to say what each module is.
+        """
+        win.erase()
+        height, width = win.getmaxyx()
+        self.draw_header(win, width, "Install these %d modules:" % len(ids))
+
+        top = HEADER_LINES
+        room = max(1, height - top - CONFIRM_FOOTER_LINES)
+        self.confirm_top = max(0, min(self.confirm_top, len(ids) - room))
+        for offset, module_id in enumerate(ids[self.confirm_top:self.confirm_top + room]):
+            self.draw_confirm_row(win, top + offset, width, self.catalogue.by_id(module_id))
+
+        total = sum(self.catalogue.by_id(i).size_mb for i in ids)
+        keys = "y installs  any other key goes back"
+        if len(ids) > room:
+            keys = "y installs  up/down scrolls  any other key goes back"
+        rule = height - CONFIRM_FOOTER_LINES
+        win.addnstr(rule, 1, self.glyph["rule"] * max(0, width - 2), width - 2,
+                    curses.color_pair(PAIR_DIM))
+        if self.confirm_top:
+            self.draw_hint(win, rule, 2, " %s %d more " % (self.glyph["more_up"], self.confirm_top))
+        rest = len(ids) - self.confirm_top - room
+        if rest > 0:
+            hint = " %d more %s " % (rest, self.glyph["more_down"])
+            self.draw_hint(win, rule, width - 2 - len(hint), hint)
+        win.addnstr(height - 2, 1, "%s to download" % human_size(total), width - 2,
+                    curses.color_pair(PAIR_TITLE))
+        win.addnstr(height - 1, 1, keys, width - 2, curses.color_pair(PAIR_DIM))
+        win.refresh()
 
     def ask_to_install(self, win):
         """Show the install list and wait for a yes. True once it has one.
@@ -448,27 +574,72 @@ class Screen:
             # Nothing to install. install.sh says so; there is nothing to ask.
             self.confirmed = True
             return True
+        self.confirm_top = 0
         while True:
             self.draw_confirm(win, ids)
             key = self.read_key(win)
             if key == curses.KEY_RESIZE:
+                continue
+            if key in (curses.KEY_UP, ord("k")):
+                self.confirm_top -= 1
+                continue
+            if key in (curses.KEY_DOWN, ord("j")):
+                self.confirm_top += 1
                 continue
             if key in (ord("y"), ord("Y")):
                 self.confirmed = True
                 return True
             return False
 
-    def handle_mouse(self, list_height):
-        """A click on a module line moves the cursor there and toggles it."""
+    # -- main loop ----------------------------------------------------------
+
+    def handle_key(self, key, layout):
+        if key in (curses.KEY_UP, ord("k")):
+            self.move(-1)
+        elif key in (curses.KEY_DOWN, ord("j")):
+            self.move(1)
+        elif key in (curses.KEY_LEFT, ord("h")):
+            self.move_column(-1, layout)
+        elif key in (curses.KEY_RIGHT, ord("l")):
+            self.move_column(1, layout)
+        elif key == curses.KEY_PPAGE:
+            self.move(-layout.page)
+        elif key == curses.KEY_NPAGE:
+            self.move(layout.page)
+        elif key in (curses.KEY_HOME, ord("g")):
+            self.jump(False)
+        elif key in (curses.KEY_END, ord("G")):
+            self.jump(True)
+        elif key == ord(" "):
+            self.toggle_cursor_row()
+        elif key in (ord("a"), ord("A")):
+            self.set_all(True)
+        elif key in (ord("n"), ord("N")):
+            self.set_all(False)
+        elif key in (ord("d"), ord("D")):
+            self.reset_defaults()
+        elif key == curses.KEY_MOUSE:
+            self.handle_mouse(layout)
+        elif key in (ord("q"), ord("Q"), KEY_ESCAPE):
+            return False
+        return True
+
+    def handle_mouse(self, layout):
+        """A click on a module moves the cursor there and toggles it."""
         try:
-            _, _, row_y, _, state = curses.getmouse()
+            _, mouse_x, mouse_y, _, state = curses.getmouse()
         except curses.error:
             return
-        index = self.top + row_y - HEADER_LINES
-        if not 0 <= index < len(self.rows) or self.rows[index].kind != "module":
+        line = mouse_y - HEADER_LINES
+        if mouse_x < 1 or line < 0:
             return
-        self.cursor = index
-        self._scroll_into_view(list_height)
+        number = self.left + (mouse_x - 1) // layout.width
+        if not 0 <= number < len(layout.columns):
+            return
+        column = layout.columns[number]
+        if line >= len(column) or column[line].kind != "module":
+            return
+        self.cursor = column[line].index
         if state & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED | curses.BUTTON1_RELEASED):
             self.toggle_cursor_row()
 
@@ -523,8 +694,7 @@ class Screen:
         running = True
         while running:
             self.draw(win)
-            height, _ = win.getmaxyx()
-            list_height = max(1, height - HEADER_LINES - FOOTER_LINES)
+            layout = self.layout(win)
             try:
                 key = self.read_key(win)
             except KeyboardInterrupt:
@@ -535,7 +705,7 @@ class Screen:
                 if self.ask_to_install(win):
                     return
                 continue
-            running = self.handle_key(key, list_height)
+            running = self.handle_key(key, layout)
 
 
 def init_colors():

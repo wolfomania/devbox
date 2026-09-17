@@ -92,22 +92,30 @@ def catalogue(manifest=None):
     return manifest_mod.load(manifest or os.path.join(ROOT, "manifests"))
 
 
-def page_size():
-    """Module rows visible in the list at once, at the geometry `run` emulates.
+def layout(manifest=None):
+    """The column arrangement the screen builds at the geometry `run` emulates."""
+    return app_mod.build_layout(
+        catalogue(manifest), COLUMNS, LINES - app_mod.HEADER_LINES - app_mod.FOOTER_LINES
+    )
 
-    PGUP and PGDN move the cursor by exactly this many module rows. A test
-    that wants to know where a page key lands has to compute it from this,
-    not from a remembered row count or a module id that happened to sit
-    there for one catalogue.
+
+def page_size():
+    """Modules on screen at once, at the geometry `run` emulates.
+
+    PGUP and PGDN move the cursor by exactly this many modules. A test that
+    wants to know where a page key lands has to compute it from this, not
+    from a remembered row count or a module id that happened to sit there
+    for one catalogue.
     """
-    return LINES - app_mod.HEADER_LINES - app_mod.FOOTER_LINES
+    return layout().page
 
 
 def steps_to(module_id, manifest=None):
     """The DOWN presses that move the cursor from the top to this module.
 
-    The cursor starts on the first module and skips category headings, so the
-    count is just the module's position in the catalogue.
+    The cursor starts on the first module and DOWN steps through the
+    catalogue in order -- down a column and on to the top of the next -- so
+    the count is just the module's position in the catalogue.
     """
     ids = [m.id for m in catalogue(manifest).modules]
     return ["DOWN"] * ids.index(module_id)

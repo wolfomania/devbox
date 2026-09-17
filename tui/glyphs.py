@@ -24,6 +24,8 @@ UNICODE = {
     "dot": "·",
     "more_up": "↑",
     "more_down": "↓",
+    "more_left": "←",
+    "more_right": "→",
 }
 
 ASCII = {
@@ -36,6 +38,8 @@ ASCII = {
     "dot": "-",
     "more_up": "^",
     "more_down": "v",
+    "more_left": "<",
+    "more_right": ">",
 }
 
 

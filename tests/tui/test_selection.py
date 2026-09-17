@@ -119,6 +119,22 @@ class SelectionScreenTest(unittest.TestCase):
         self.assertTrue(result.confirmed)
         self.assert_landed_on(landing, result)
 
+    def test_right_moves_to_the_next_column(self):
+        """The catalogue is laid out in columns now, so left and right move
+        between them. Which module sits at the top of the second column
+        depends on the catalogue, so read it off the layout."""
+        landing = drive.layout().nearest(1, 0)
+        module_id = drive.catalogue().modules[landing].id
+        result = drive.run(["RIGHT", "SPACE", "ENTER", "y"])
+        self.assertTrue(result.confirmed)
+        self.assert_landed_on(module_id, result)
+
+    def test_left_comes_back_to_the_column_it_left(self):
+        first = drive.catalogue().modules[0].id
+        result = drive.run(["RIGHT", "LEFT", "SPACE", "ENTER", "y"])
+        self.assertTrue(result.confirmed)
+        self.assert_landed_on(first, result)
+
     def test_the_screen_says_how_many_modules_are_out_of_view(self):
         result = drive.run(["q"])
         self.assertIn("more", result.screen)
@@ -137,6 +153,16 @@ class SelectionScreenTest(unittest.TestCase):
         screen is where this went unread."""
         result = drive.run(["q"])
         self.assertIn("enter installs the %d ticked" % len(DEFAULTS), result.screen)
+
+    def test_the_grid_leaves_the_descriptions_to_the_confirmation(self):
+        """The grid shows names and versions, which is what lets it show the
+        whole catalogue at once. The description is on the page that asks for
+        a yes, where there is room for it and where it is read before
+        anything is installed."""
+        listing = drive.run(["q"])
+        self.assertNotIn("gcc, make, curl", listing.screen)
+        confirmation = drive.run(["ENTER", "n", "q"])
+        self.assertIn("gcc, make, curl", confirmation.screen)
 
     # -- toggling -----------------------------------------------------------
 
@@ -245,6 +271,43 @@ class SelectionScreenTest(unittest.TestCase):
         result = drive.run(["SHIFT_TAB", "ENTER", "y"])
         self.assertTrue(result.confirmed)
         self.assertEqual(result.selection, DEFAULTS)
+
+
+class ColumnLayoutTest(unittest.TestCase):
+    """How the catalogue is arranged, checked as a plain function.
+
+    The arrangement is pure -- a catalogue and a terminal size in, columns of
+    cells out -- so nothing here needs a pty.
+    """
+
+    def test_the_catalogue_is_laid_out_in_more_than_one_column(self):
+        self.assertGreater(len(drive.layout().columns), 1)
+
+    def test_every_module_is_placed_exactly_once(self):
+        cells = [cell
+                 for column in drive.layout().columns
+                 for cell in column if cell.kind == "module"]
+        self.assertEqual(sorted(cell.index for cell in cells),
+                         list(range(len(drive.catalogue().modules))))
+
+    def test_a_category_keeps_its_modules_in_one_column(self):
+        """A category is only ever split when it is taller than a whole
+        column, and none of them is."""
+        layout = drive.layout()
+        columns = {}
+        for index, module in enumerate(drive.catalogue().modules):
+            columns.setdefault(module.category, set()).add(layout.column_of(index))
+        for category, numbers in columns.items():
+            self.assertEqual(len(numbers), 1, "%s is split across columns" % category)
+
+    def test_a_narrow_terminal_falls_back_to_one_column(self):
+        layout = drive.app_mod.build_layout(drive.catalogue(), 40, 20)
+        self.assertEqual(layout.visible, 1)
+
+    def test_a_wide_terminal_gets_more_columns_than_a_narrow_one(self):
+        narrow = drive.app_mod.build_layout(drive.catalogue(), 80, 20)
+        wide = drive.app_mod.build_layout(drive.catalogue(), 160, 20)
+        self.assertGreater(wide.visible, narrow.visible)
 
 
 if __name__ == "__main__":
