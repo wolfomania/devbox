@@ -111,6 +111,16 @@ required_modules() { manifest rows | awk -F'\t' '{print $1}' | while read -r id;
 	[ "$(manifest field "$id" required)" = "True" ] && printf '%s\n' "$id"
 done; }
 
+# The parts of the required bundles, which are the only parts that have to
+# install on a box with nothing on it. install.sh installs the required
+# modules before anything else, so every other part can count on curl, wget
+# and a certificate store already being there.
+bare_parts() {
+	for id in $(required_modules); do
+		sed -n 's/^[A-Z_]*PARTS="\([^"]*\)".*/\1/p' "$ROOT/$(module_script "$id")"
+	done | tr ' ' '\n' | sed '/^$/d'
+}
+
 # The parts of a bundle, which have no manifest entry and are named by file.
 list_parts() {
 	for path in "$ROOT"/modules/parts/*.sh; do
@@ -140,11 +150,13 @@ default_modules() {
 
 test_module() {
 	id="$1"
-	# A bare Ubuntu is the stricter test, so anything that can be installed on
-	# one is: every bundle part is a plain apt package, and the required
-	# modules are what a box gets before anything else.
+	# A bare Ubuntu is the stricter test, so anything that has to install on
+	# one is tested on one: the required modules, which are what a box gets
+	# before anything else, and their parts. The rest are installed after
+	# those and may use what they provide -- several parts now fetch a
+	# release over https rather than take a years-old apt package.
 	image="$IMAGE_READY"
-	in_list "$id" "$(required_modules) $(list_parts | tr '\n' ' ')" && image="$IMAGE_BARE"
+	in_list "$id" "$(required_modules) $(bare_parts | tr '\n' ' ')" && image="$IMAGE_BARE"
 
 	log_file="$work_dir/$id.log"
 	started="$(date +%s)"
