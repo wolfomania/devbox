@@ -28,8 +28,8 @@ requires = ["python"]
 default = false
 required = false
 needs_root = false
-pin = "1.5.5"
-pin_kind = "uv"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 60
 
 [[module]]
@@ -41,7 +41,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "zip"
+pin_kind = "latest"
 size_mb = 250
 
 [[module]]
@@ -77,8 +77,8 @@ requires = ["node"]
 default = false
 required = false
 needs_root = false
-pin = "59.19.0"
-pin_kind = "npm"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 90
 
 [[module]]

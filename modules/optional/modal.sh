@@ -3,6 +3,8 @@
 # uv as an isolated tool, so it carries its own Python and dependencies rather
 # than landing in whatever interpreter happens to be on the box.
 #
+# MOD_PIN is "latest", which is what the manifest says, or an exact version.
+#
 #   modules/optional/modal.sh check | install | version
 . "$(dirname -- "$0")/../../lib/module.sh"
 
@@ -24,8 +26,14 @@ dvb_install() {
 	}
 
 	env_init
-	log_dim "  uv tool install modal==$MOD_PIN"
-	env UV_TOOL_BIN_DIR="$DVB_BIN" uv tool install --force "modal==$MOD_PIN" \
+	if [ "$MOD_PIN" = "latest" ]; then
+		spec="modal"
+	else
+		spec="modal==$MOD_PIN"
+	fi
+
+	log_dim "  uv tool install $spec"
+	env UV_TOOL_BIN_DIR="$DVB_BIN" uv tool install --force "$spec" \
 		>/dev/null 2>&1 || return 1
 
 	[ -x "$DVB_BIN/modal" ]

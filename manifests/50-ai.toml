@@ -29,5 +29,5 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "npm"
+pin_kind = "latest"
 size_mb = 90

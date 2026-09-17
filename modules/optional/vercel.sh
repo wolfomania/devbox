@@ -1,6 +1,7 @@
 #!/bin/sh
-# Vercel CLI from npm, pinned to an exact version. Depends on the Node
-# module, which the runner installs first.
+# Vercel CLI from npm. MOD_PIN is "latest", which is what the manifest says,
+# and is also a dist-tag npm understands, so it needs no special case here.
+# Depends on the Node module, which the runner installs first.
 #
 #   modules/optional/vercel.sh check | install | version
 . "$(dirname -- "$0")/../../lib/module.sh"
