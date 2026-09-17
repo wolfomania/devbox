@@ -10,14 +10,14 @@ order = 40
 [[module]]
 id = "docker"
 name = "Docker"
-summary = "docker engine and the compose plugin"
+summary = "docker engine, buildx and compose, from Docker's apt repository"
 script = "modules/optional/docker.sh"
 default = false
 required = false
 needs_root = true
 pin = "apt"
 pin_kind = "apt"
-size_mb = 420
+size_mb = 480
 
 [[module]]
 id = "modal"
