@@ -27,12 +27,10 @@ dvb_install() {
 	need_reinstall=0
 
 	# The pin lives inside the repository URL, not in a package version apt
-	# can compare against. pkg_add_repo only checks whether the list file
-	# exists, so a file left behind by an earlier pin would otherwise be
-	# trusted as-is and this module would quietly install that older minor
-	# while the manifest and the selection screen both claim $MOD_PIN.
+	# can compare against. pkg_add_repo replaces a source file whose line has
+	# changed, but the kubectl already installed from the old one keeps its
+	# old version until something reinstalls it.
 	if [ -f "$list" ] && ! grep -qxF "$repo_line" "$list"; then
-		as_root rm -f "$list" /etc/apt/keyrings/kubernetes.gpg || return 1
 		need_reinstall=1
 	fi
 

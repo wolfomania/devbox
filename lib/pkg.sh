@@ -80,8 +80,16 @@ pkg_install() {
 # If the index refresh that follows fails, the list file just written is
 # removed again. Left in place, a bad repository entry fails pkg_refresh --
 # and with it every pkg_install -- for the rest of the run, and every run
-# after that, since the check above treats the list file's mere presence as
+# after that, since a list file already on disk is otherwise taken for
 # "already done".
+#
+# A list file whose line does not match the one being asked for is not the
+# repository being asked for, and is replaced. Some repositories carry the
+# pinned version inside the URL rather than in a package version apt can
+# compare -- Node's node_24.x and Kubernetes' core:/stable:/v1.37 both do --
+# so a file left behind by an earlier pin would otherwise be trusted as-is,
+# and the module would quietly install that older line while the manifest and
+# the selection screen both claim the new one.
 pkg_add_repo() {
 	repo_name="$1"
 	key_url="$2"
@@ -89,7 +97,10 @@ pkg_add_repo() {
 	keyring="/etc/apt/keyrings/${repo_name}.gpg"
 	list="/etc/apt/sources.list.d/${repo_name}.list"
 
-	[ -f "$list" ] && return 0
+	if [ -f "$list" ]; then
+		grep -qxF "$source_body" "$list" 2>/dev/null && return 0
+		as_root rm -f "$list" "$keyring" || return 1
+	fi
 
 	as_root install -m 0755 -d /etc/apt/keyrings || return 1
 
