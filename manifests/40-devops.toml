@@ -101,8 +101,8 @@ script = "modules/optional/helm.sh"
 default = false
 required = false
 needs_root = false
-pin = "4.3.0"
-pin_kind = "tarball"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 60
 
 [[module]]
@@ -125,6 +125,6 @@ script = "modules/optional/opentofu.sh"
 default = false
 required = false
 needs_root = false
-pin = "1.12.6"
-pin_kind = "tarball"
+pin = "latest"
+pin_kind = "latest"
 size_mb = 90
