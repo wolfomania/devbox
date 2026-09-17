@@ -1,7 +1,10 @@
 #!/bin/sh
-# fd, a fast, friendly find. Debian ships the binary as fdfind because the
-# name "fd" was already taken in the archive; linked here so `fd` works as
-# everyone expects.
+# fd, a fast, friendly find.
+#
+# From the GitHub release rather than apt: noble packages 9.0 against an
+# upstream on 10.5, a whole major version. It also sidesteps Debian's
+# renaming of the binary to fdfind, which every install of the apt package
+# had to undo with a symlink.
 #
 #   modules/parts/fd.sh check | install
 #
@@ -9,15 +12,29 @@
 DVB_UNLISTED=1
 . "$(dirname -- "$0")/../../lib/module.sh"
 
+fd_triple() {
+	case "$DVB_ARCH" in
+		amd64) printf 'x86_64-unknown-linux-musl\n' ;;
+		arm64) printf 'aarch64-unknown-linux-musl\n' ;;
+		*)
+			log_err "no fd build for architecture $DVB_ARCH"
+			return 1
+			;;
+	esac
+}
+
 dvb_check() {
-	command -v fdfind >/dev/null 2>&1 || return 1
-	fdfind --version 2>/dev/null | awk '{print "fd", $2}'
+	command -v fd >/dev/null 2>&1 || return 1
+	fd --version 2>/dev/null | awk '{print $1, $2}'
 }
 
 dvb_install() {
-	pkg_install fd-find || return 1
-	fdfind_bin="$(command -v fdfind)" || return 1
-	env_link_bin "$fdfind_bin" fd
+	triple="$(fd_triple)" || return 1
+	release="$(gh_latest_tag sharkdp/fd)" || return 1
+	dir="fd-v${release}-${triple}"
+	url="https://github.com/sharkdp/fd/releases/download/v${release}/${dir}.tar.gz"
+
+	fetch_bin_from_tar "$url" "${dir}/fd"
 }
 
 dvb_main "$@"
