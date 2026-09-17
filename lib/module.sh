@@ -68,7 +68,7 @@ dvb_module_path() {
 	printf '%s\n' "${script_path#"$DVB_ROOT"/}"
 }
 
-# Fill MOD_PIN and MOD_PIN_EXTRA from the manifest.
+# Fill MOD_PIN, MOD_PIN_EXTRA and MOD_CHANNEL from the manifest.
 #
 # Versions are pinned in the manifest and nowhere else, so a module never
 # carries a second copy of a version number that can drift from the catalogue
@@ -84,7 +84,8 @@ dvb_load_pin() {
 
 	MOD_PIN="$(printf '%s' "$pins" | cut -f1)"
 	MOD_PIN_EXTRA="$(printf '%s' "$pins" | cut -f2)"
-	export MOD_PIN MOD_PIN_EXTRA
+	MOD_CHANNEL="$(printf '%s' "$pins" | cut -f3)"
+	export MOD_PIN MOD_PIN_EXTRA MOD_CHANNEL
 }
 
 # The release this module should install: the version the manifest pins, or
@@ -146,12 +147,13 @@ usage: $(basename -- "$0") <command>
 
   check     print the installed version and exit 0, or exit 1 if it is absent
   install   install this module, then exit
-  version   print the version this module is pinned to
+  version   print the version this module is pinned to, or, for a module
+            whose channel decides that, the name of the channel
 USAGE
 }
 
 dvb_main() {
-	: "${MOD_PIN:=}" "${MOD_PIN_EXTRA:=}"
+	: "${MOD_PIN:=}" "${MOD_PIN_EXTRA:=}" "${MOD_CHANNEL:=}"
 
 	case "${1:-}" in
 		check) dvb_check ;;
@@ -163,7 +165,11 @@ dvb_main() {
 			[ "${DVB_UNLISTED:-0}" -eq 0 ] ||
 				die "no pinned version: this script is one part of a bundle"
 			dvb_load_pin
-			printf '%s\n' "$MOD_PIN"
+			# A module whose channel decides the version for it has no
+			# pin to print: an apt package is whatever the repository
+			# currently offers. Naming the channel answers the same
+			# question, which is what this module follows.
+			printf '%s\n' "${MOD_PIN:-$MOD_CHANNEL}"
 			;;
 		-h | --help | help)
 			dvb_usage

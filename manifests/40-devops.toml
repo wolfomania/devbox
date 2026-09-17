@@ -15,8 +15,8 @@ script = "modules/optional/docker.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt-vendor"
 size_mb = 480
 
 [[module]]
@@ -29,7 +29,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "uv"
 size_mb = 60
 
 [[module]]
@@ -41,7 +41,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "script"
 size_mb = 250
 
 [[module]]
@@ -52,8 +52,8 @@ script = "modules/optional/gcloud.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt-vendor"
 size_mb = 525
 
 [[module]]
@@ -65,7 +65,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 60
 
 [[module]]
@@ -78,7 +78,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "npm"
 size_mb = 90
 
 [[module]]
@@ -90,7 +90,7 @@ default = false
 required = false
 needs_root = true
 pin = "1.37"
-pin_kind = "apt"
+channel = "apt-vendor"
 size_mb = 61
 
 [[module]]
@@ -102,7 +102,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 95
 
 [[module]]
@@ -114,7 +114,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 60
 
 [[module]]
@@ -125,8 +125,8 @@ script = "modules/optional/terraform.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt-vendor"
 size_mb = 118
 
 [[module]]
@@ -138,5 +138,5 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 90

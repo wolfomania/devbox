@@ -15,8 +15,8 @@ script = "modules/core/base.sh"
 default = true
 required = true
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt"
 size_mb = 210
 
 [[module]]
@@ -27,8 +27,8 @@ script = "modules/core/git.sh"
 default = true
 required = true
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt"
 size_mb = 30
 
 [[module]]
@@ -39,8 +39,8 @@ script = "modules/core/gh.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt-vendor"
 size_mb = 55
 
 [[module]]
@@ -51,6 +51,6 @@ script = "modules/core/cli.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "mixed"
 size_mb = 40

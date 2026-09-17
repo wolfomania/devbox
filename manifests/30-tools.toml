@@ -16,7 +16,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 55
 
 [[module]]
@@ -27,8 +27,8 @@ script = "modules/optional/db.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt"
 size_mb = 35
 
 [[module]]
@@ -39,8 +39,8 @@ script = "modules/optional/shelltools.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "mixed"
 size_mb = 45
 
 [[module]]
@@ -52,7 +52,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 20
 
 [[module]]
@@ -64,7 +64,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 6
 
 [[module]]
@@ -76,5 +76,5 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 14

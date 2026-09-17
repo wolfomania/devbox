@@ -17,5 +17,5 @@ default = true
 required = false
 needs_root = true
 pin = ""
-pin_kind = "none"
+channel = "none"
 size_mb = 0

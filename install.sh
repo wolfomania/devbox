@@ -285,7 +285,7 @@ print_list() {
 			printf '  %s%-4s%s %-18s %s\n' "$C_GREEN" "ok" "$C_RESET" "$id" "$version"
 		elif [ "$needs_root" = "1" ] && [ "$DVB_CAN_ROOT" -eq 0 ]; then
 			printf '  %s%-4s%s %-18s needs root\n' "$C_YELLOW" "--" "$C_RESET" "$id"
-		elif [ -n "$pin" ]; then
+		elif [ -n "$pin" ] && [ "$pin" != "latest" ]; then
 			printf '  %s%-4s%s %-18s not installed, pinned %s\n' "$C_DIM" "--" "$C_RESET" "$id" "$pin"
 		else
 			printf '  %s%-4s%s %-18s not installed\n' "$C_DIM" "--" "$C_RESET" "$id"

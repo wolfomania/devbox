@@ -16,7 +16,7 @@ default = false
 required = false
 needs_root = false
 pin = "3.14"
-pin_kind = "major-line"
+channel = "script"
 size_mb = 200
 
 [[module]]
@@ -28,7 +28,7 @@ default = false
 required = false
 needs_root = true
 pin = "24"
-pin_kind = "major-line"
+channel = "apt-vendor"
 size_mb = 120
 
 [[module]]
@@ -40,7 +40,7 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "release"
 size_mb = 260
 
 [[module]]
@@ -52,7 +52,7 @@ default = false
 required = false
 needs_root = false
 pin = "stable"
-pin_kind = "major-line"
+channel = "script"
 size_mb = 900
 
 [[module]]
@@ -64,7 +64,7 @@ default = false
 required = false
 needs_root = true
 pin = "25"
-pin_kind = "major-line"
+channel = "apt-vendor"
 size_mb = 320
 
 [[module]]
@@ -75,8 +75,8 @@ script = "modules/lang/ruby.sh"
 default = false
 required = false
 needs_root = true
-pin = "apt"
-pin_kind = "apt"
+pin = ""
+channel = "apt"
 size_mb = 90
 
 [[module]]
@@ -88,5 +88,5 @@ default = false
 required = false
 needs_root = false
 pin = "latest"
-pin_kind = "latest"
+channel = "script"
 size_mb = 55

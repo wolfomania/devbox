@@ -35,8 +35,14 @@ class Module:
     category: str
     summary: str
     script: str
+    # What version policy this module follows: an exact version, a major line
+    # to take the newest patch of, "latest", or empty when the channel decides
+    # -- an apt package is whatever the repository currently offers.
     pin: str
-    pin_kind: str
+    # Where it is installed from. Not read by the installer; it is how the
+    # catalogue states the rule each module was chosen under. One of: apt,
+    # apt-vendor, release, script, npm, uv, mixed, none.
+    channel: str
     pin_extra: str = ""
     default: bool = False
     required: bool = False
@@ -53,7 +59,7 @@ class Module:
             summary=raw.get("summary", ""),
             script=raw["script"],
             pin=str(raw.get("pin", "")),
-            pin_kind=raw.get("pin_kind", "none"),
+            channel=raw.get("channel", "none"),
             pin_extra=str(raw.get("pin_extra", "")),
             default=bool(raw.get("default", False)),
             required=bool(raw.get("required", False)),
@@ -194,12 +200,13 @@ def _cli(argv):
         return 0
 
     if command == "pins" and len(argv) == 2:
-        # The pinned version and its companion pin, for the module whose script
-        # is at this path. Modules use it to look up their own pin.
+        # The pinned version, its companion pin, and the channel, for the
+        # module whose script is at this path. Modules use it to look up their
+        # own pin.
         wanted = argv[1]
         for m in catalogue.modules:
             if m.script == wanted:
-                print("%s\t%s" % (m.pin, m.pin_extra))
+                print("%s\t%s\t%s" % (m.pin, m.pin_extra, m.channel))
                 return 0
         print("manifest.py: no module with script %r" % wanted, file=sys.stderr)
         return 1
