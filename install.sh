@@ -105,6 +105,8 @@ export DVB_MANIFEST
 . "$DVB_ROOT/lib/pkg.sh"
 # shellcheck source=lib/paths.sh
 . "$DVB_ROOT/lib/paths.sh"
+# shellcheck source=lib/account.sh
+. "$DVB_ROOT/lib/account.sh"
 
 OPT_YES=0
 OPT_LIST=0
@@ -186,29 +188,51 @@ tty_restore() {
 
 # --- the account being provisioned -----------------------------------------
 
-# Under `| sudo sh` everything runs as root, so HOME is /root and every
-# per-user tool would land there, invisible to the person who asked for it.
-# Point HOME at the invoking account instead. env_hand_back returns ownership
-# once the install is done.
+# devbox provisions one dedicated account, exclave by default, rather than
+# root itself or whichever cloud user called sudo; lib/account.sh says what
+# that account gets. Doing that needs root, so a run that can get root through
+# sudo starts over under it, once, before anything else is asked.
 #
-# Only root may do this. SUDO_USER is inherited like any other variable, and a
-# chain such as `sudo -iu ubuntu` leaves the previous account's name in it:
-# ubuntu would then install into /home/ssm-user, which it cannot write, and
-# every module would fail on Permission denied.
-adopt_invoking_user() {
+# Run by the account itself, devbox installs for it without sudo, which is
+# what a second run after logging in as exclave does. Run with no way to root
+# at all, it installs for whoever ran it, as before.
+become_root() {
+	[ "$(id -u)" -ne 0 ] || return 0
+	[ "$(id -un)" != "$ACCOUNT_NAME" ] || return 0
+	case "$DVB_PRIV" in
+		sudo | sudo-password) ;;
+		*) return 0 ;;
+	esac
+
+	log_dim "  running under sudo to provision the $ACCOUNT_NAME account"
+	# sudo drops the environment, so the settings that steer a run are
+	# handed over by name.
+	exec sudo env DVB_ACCOUNT="$ACCOUNT_NAME" DVB_MANIFEST="$DVB_MANIFEST" \
+		DVB_REPO="$DVB_REPO" DVB_REF="$DVB_REF" NO_COLOR="${NO_COLOR:-}" \
+		sh "$DVB_ROOT/install.sh" "$@"
+}
+
+# Point HOME at the account from the start, so the probe asks the right home
+# what is installed. The account is only created or fixed in the install
+# phase, so --list and --dry-run still change nothing.
+adopt_account() {
 	DVB_USER="$(id -un)"
+	if [ "$(id -u)" -eq 0 ]; then
+		DVB_USER="$ACCOUNT_NAME"
+		HOME="$(account_home)"
+		export HOME
+		paths_refresh
+		detect_disk
+	fi
+	export DVB_USER
+}
+
+# Create the account, or bring an existing one up to its profile, before the
+# first module writes into its home.
+prepare_account() {
 	[ "$(id -u)" -eq 0 ] || return 0
-	[ -n "${SUDO_USER:-}" ] || return 0
-	[ "$SUDO_USER" != "root" ] || return 0
-
-	user_home="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)"
-	[ -n "$user_home" ] && [ -d "$user_home" ] || return 0
-
-	DVB_USER="$SUDO_USER"
-	HOME="$user_home"
-	export HOME
-	paths_refresh
-	detect_disk
+	log_step "Account $ACCOUNT_NAME"
+	account_ensure || die "could not prepare the $ACCOUNT_NAME account"
 }
 
 # Root created these on someone else's behalf; hand them over.
@@ -421,7 +445,11 @@ install_selection() {
 		log_warn "failed:$failed"
 		return 1
 	fi
-	log_dim "  open a new shell, or run:  . $DVB_ENV_FILE"
+	if [ "$DVB_USER" != "$(id -un)" ]; then
+		log_dim "  log in as $DVB_USER:  ssh $DVB_USER@<this box>"
+	else
+		log_dim "  open a new shell, or run:  . $DVB_ENV_FILE"
+	fi
 }
 
 report_capabilities() {
@@ -473,6 +501,7 @@ run_selection() {
 
 	if [ "$OPT_DRY_RUN" -eq 0 ]; then
 		prime_sudo
+		prepare_account
 		env_init
 	fi
 	install_selection
@@ -588,7 +617,8 @@ main() {
 	parse_args "$@"
 
 	detect_all
-	adopt_invoking_user
+	become_root "$@"
+	adopt_account
 	require_python
 	detect_export
 	detect_report

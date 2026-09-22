@@ -398,7 +398,7 @@ cat > /opt/devbox-assert.sh <<'ASSERT_EOF'
 $assert_body
 ASSERT_EOF
 chmod +x /opt/devbox-assert.sh
-DVB_EXPECT='$SCENARIO_EXPECT' DVB_USER='$SCENARIO_USER' DVB_SRC=/opt/devbox-src \\
+DVB_EXPECT='$SCENARIO_EXPECT' DVB_USER='${SCENARIO_ACCOUNT:-exclave}' DVB_SRC=/opt/devbox-src \\
   DVB_FLAGS='$SCENARIO_FLAGS' \\
   sh /opt/devbox-assert.sh
 REMOTE

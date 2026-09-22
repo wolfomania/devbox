@@ -9,8 +9,17 @@ detected and skipped.
 curl -fsSL https://raw.githubusercontent.com/wolfomania/devbox/main/install.sh | sh
 ```
 
-Run it without `sudo`. devbox escalates with sudo only for the steps that
-need root.
+Run it as any account that can use `sudo`, or as root. devbox re-runs itself
+under sudo and installs everything into a dedicated `exclave` account:
+
+- Creates `exclave` with bash, a home and passwordless sudo, or checks and
+  fixes an existing one. A system account named `exclave` is refused.
+- Copies the SSH keys of root and of the account that ran sudo into
+  `/home/exclave/.ssh/authorized_keys`.
+- Log in afterwards with `ssh exclave@<box>`. Set `DVB_ACCOUNT` to use
+  another name.
+
+Without any root access, devbox installs for the account that ran it.
 
 - Arrow keys: move
 - Space: tick the row under the cursor
@@ -134,7 +143,8 @@ that do not require root remain available.
 ## Installation behavior
 
 - System packages require root or `sudo`.
-- User tools install under `$HOME`.
+- User tools install under the home of `exclave`, or of the account that ran
+  devbox when root is unavailable.
 - PATH entries are written to `~/.config/devbox/env.sh`.
 - Root-only modules are unavailable when root access is missing.
 - Below 2048 MiB of RAM plus swap, interactive runs offer a 2048 MiB

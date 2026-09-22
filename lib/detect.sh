@@ -85,7 +85,13 @@ detect_memory() {
 }
 
 detect_disk() {
-	DVB_DISK_FREE_MB=$(df -Pm "$HOME" 2>/dev/null | awk 'NR==2 {print $4}')
+	# HOME may name an account that is created later in the run; measure
+	# the nearest directory that exists, which is where it will be made.
+	disk_dir="$HOME"
+	while [ ! -d "$disk_dir" ] && [ "$disk_dir" != "/" ]; do
+		disk_dir="$(dirname -- "$disk_dir")"
+	done
+	DVB_DISK_FREE_MB=$(df -Pm "$disk_dir" 2>/dev/null | awk 'NR==2 {print $4}')
 	[ -n "$DVB_DISK_FREE_MB" ] || DVB_DISK_FREE_MB=0
 }
 
