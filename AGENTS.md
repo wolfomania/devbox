@@ -80,3 +80,8 @@ be used by hand:
 ```sh
 python3 tests/tui/drive.py DOWN DOWN SPACE ENTER
 ```
+
+## Backlog
+
+`docs/matrix-os-gaps.md` lists box-setup features from Matrix OS that devbox
+lacks, with candidate modules in priority order.
