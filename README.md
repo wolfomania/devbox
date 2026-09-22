@@ -148,6 +148,9 @@ that do not require root remain available.
 - User tools install under the home of `exclave`, or of the account that ran
   devbox when root is unavailable.
 - PATH entries are written to `~/.config/devbox/env.sh`.
+- `docker` publishes container ports on `127.0.0.1` by default, on the
+  default bridge and on Compose networks. Docker's rules bypass ufw, so reach
+  them through `ssh -L`. An explicit `-p 0.0.0.0:PORT:PORT` is still public.
 - Root-only modules are unavailable when root access is missing.
 - Below 2048 MiB of RAM plus swap, interactive runs offer a 2048 MiB
   `/swapfile`. `--yes` does not create it.

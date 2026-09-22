@@ -200,16 +200,22 @@ become_root() {
 	[ "$(id -u)" -ne 0 ] || return 0
 	[ "$(id -un)" != "$ACCOUNT_NAME" ] || return 0
 	case "$DVB_PRIV" in
-		sudo | sudo-password) ;;
-		*) return 0 ;;
-	esac
+		sudo) sudo -n true 2>/dev/null ;;
+		sudo-password) [ -t 0 ] && sudo -v ;;
+		*) false ;;
+	esac || {
+		[ "$DVB_PRIV" = "none" ] ||
+			log_warn "sudo is unavailable here; installing for $(id -un), not $ACCOUNT_NAME"
+		return 0
+	}
 
 	log_dim "  running under sudo to provision the $ACCOUNT_NAME account"
 	# sudo drops the environment, so the settings that steer a run are
 	# handed over by name.
 	exec sudo env DVB_ACCOUNT="$ACCOUNT_NAME" DVB_MANIFEST="$DVB_MANIFEST" \
 		DVB_REPO="$DVB_REPO" DVB_REF="$DVB_REF" NO_COLOR="${NO_COLOR:-}" \
-		sh "$DVB_ROOT/install.sh" "$@"
+		TMPDIR="${TMPDIR:-}" http_proxy="${http_proxy:-}" https_proxy="${https_proxy:-}" \
+		no_proxy="${no_proxy:-}" sh "$DVB_ROOT/install.sh" "$@"
 }
 
 # Point HOME at the account from the start, so the probe asks the right home
@@ -235,16 +241,14 @@ prepare_account() {
 	account_ensure || die "could not prepare the $ACCOUNT_NAME account"
 }
 
-# Root created these on someone else's behalf; hand them over.
+# Root created these on someone else's behalf; hand them over. Everything
+# root made under the account's home belongs to the account: a fresh account
+# has no ~/.config or ~/.cache until a module run as root creates them.
 env_hand_back() {
 	[ "$(id -u)" -eq 0 ] || return 0
 	[ -n "${DVB_USER:-}" ] && [ "$DVB_USER" != "root" ] || return 0
 
-	for path in "$DVB_ENV_DIR" "$DVB_BIN" "$DVB_PREFIX" \
-		"$HOME/.nvm" "$HOME/.cargo" "$HOME/.rustup" "$HOME/.local"; do
-		[ -e "$path" ] || continue
-		chown -R "$DVB_USER" "$path" 2>/dev/null || true
-	done
+	find "$HOME" -xdev -user root -exec chown -h "$DVB_USER:" {} + 2>/dev/null || true
 }
 
 # --- python ----------------------------------------------------------------

@@ -66,6 +66,11 @@ dvb_install() {
 # Reach a published port through an SSH tunnel instead. An explicit
 # -p 0.0.0.0:5432:5432 still opens it; this changes only the default.
 #
+# "ip" covers the default bridge only. Compose and `docker network create`
+# make networks of their own, which take their binding from
+# default-network-opts. A network created before this was set keeps binding
+# every interface until it is recreated.
+#
 # Other keys in an existing daemon.json are kept.
 docker_bind_localhost() {
 	DOCKER_CONFIG_CHANGED=0
@@ -80,6 +85,8 @@ import json, sys
 text = sys.stdin.read().strip()
 config = json.loads(text) if text else {}
 config["ip"] = sys.argv[1]
+bridge = config.setdefault("default-network-opts", {}).setdefault("bridge", {})
+bridge["com.docker.network.bridge.host_binding_ipv4"] = sys.argv[1]
 print(json.dumps(config, indent=2, sort_keys=True))
 ' "$DOCKER_BIND_IP")" || {
 		log_err "$DOCKER_DAEMON_JSON is not valid JSON; leaving it alone"
