@@ -26,6 +26,9 @@ BASE_IMAGE="${DVB_TEST_IMAGE:-ubuntu:24.04}"
 # /proc/meminfo is not namespaced and swapon either fails in a container or,
 # under --privileged, adds swap to the host, so swap belongs in that tier too.
 SKIP_MODULES="docker swap"
+# Need their own network namespace to change: ufw writes iptables rules, which
+# a container may do to itself, and only to itself, with NET_ADMIN.
+NET_ADMIN_MODULES="firewall"
 # Correct in a container but too large to run on every change. --all includes
 # them.
 SLOW_MODULES="latex"
@@ -163,9 +166,12 @@ test_module() {
 	printf '  %-14s ' "$id"
 
 	container="devbox-test-$id-$$"
+	caps=""
+	in_list "$id" "$NET_ADMIN_MODULES" && caps="--cap-add NET_ADMIN"
 	# This image was built for this test and has never had the tool, so a
 	# check that passes before the install is a check that lies.
-	if $DOCKER run --name "$container" -e DVB_TEST_PRISTINE=1 "$image" \
+	# shellcheck disable=SC2086
+	if $DOCKER run --name "$container" $caps -e DVB_TEST_PRISTINE=1 "$image" \
 		sh tests/module-case.sh "$id" > "$log_file" 2>&1; then
 		outcome=0
 	else

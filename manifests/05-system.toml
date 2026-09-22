@@ -19,3 +19,15 @@ needs_root = true
 pin = ""
 channel = "none"
 size_mb = 0
+
+[[module]]
+id = "firewall"
+name = "Firewall"
+summary = "ufw: deny inbound except SSH, rate limited"
+script = "modules/system/firewall.sh"
+default = true
+required = false
+needs_root = true
+pin = ""
+channel = "apt"
+size_mb = 3
