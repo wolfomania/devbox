@@ -2,29 +2,38 @@
 
 Several agents may be working in this directory at the same time.
 
-## Worktrees
+## Worktrees and pull requests
 
-Every request follows the same workflow: new worktree -> work -> rebase -> delete worktree.
+Every request follows the same workflow: new worktree and branch -> work ->
+pull request on GitHub -> rebase merge -> delete worktree.
 
-- Do your work in your own git worktree, never in the shared checkout.
+- Do your work in your own git worktree on a new branch, never in the shared
+  checkout.
 - Commit and push from that worktree.
-- Once the request is implemented, bring work back to `main` by rebasing, not merging.
-- Push the changes.
-- Remove the worktree.
-- Leave the shared checkout on `main` and clean.
+- Open a pull request on GitHub for the branch. Never land a request on `main`
+  locally; the pull request is the record of what the request changed.
+- Merge the pull request with rebase, not a merge commit or squash.
+- Remove the worktree and the branch.
+- Leave the shared checkout on `main`, clean and pulled.
 
 ```sh
-git worktree add ../devbox-<task> -b <task>
+git fetch origin
+git worktree add ../devbox-<task> -b <task> origin/main
 cd ../devbox-<task>
 # work, commit
+git rebase origin/main
 git push -u origin <task>
-git rebase main && git push --force-with-lease
+gh pr create --base main --head <task> --title "<type>: <summary>" --body "<what changed>"
+gh pr merge <task> --rebase --delete-branch
 ```
 
-Remove the worktree when the branch has landed:
+After the pull request has merged:
 
 ```sh
+cd ../devbox
 git worktree remove ../devbox-<task>
+git branch -D <task>
+git pull --ff-only
 ```
 
 ## Commits
