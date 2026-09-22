@@ -24,9 +24,10 @@ import drive
 # only on a box that is short of memory. On a roomy box it reads as satisfied
 # and drops out of the list by itself.
 #
-# The firewall is ticked because a box reachable from the internet should
-# refuse everything but SSH before anything is installed on it.
-DEFAULTS = ["swap", "firewall", "base", "git"]
+# The firewall and security updates are ticked because a box reachable from
+# the internet should refuse everything but SSH, and take security patches,
+# before anything is installed on it.
+DEFAULTS = ["swap", "firewall", "updates", "base", "git"]
 
 
 class SelectionScreenTest(unittest.TestCase):

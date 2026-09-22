@@ -54,6 +54,7 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 |---|---|---|---|---|---|
 | System | `swap` | default | yes | `none` | a swapfile, on a box under 2 GiB of memory |
 | System | `firewall` | default | yes | `apt` | ufw: deny inbound except SSH, rate limited |
+| System | `updates` | default | yes | `apt` | unattended-upgrades: security patches daily, no automatic reboot |
 | Core | `base` | required | yes | `apt` | gcc, make, curl, wget, unzip, ca-certificates |
 | Core | `git` | required | yes | `apt` | Git |
 | Core | `gh` | optional | yes | `apt-vendor` | GitHub CLI |
@@ -86,7 +87,7 @@ Set `DVB_REPO` and `DVB_REF` to use another repository or branch.
 | AI agents | `codex` | optional | no | `npm` | Codex CLI; requires `node` |
 | Documents | `latex` | optional | yes | `apt` | TeX Live, latexmk |
 
-Only the required modules and `firewall` are ticked when the screen opens,
+Only the required modules, `firewall` and `updates` are ticked when the screen opens,
 plus `swap` on a box with too little memory to build on. Space ticks the rest. Versions,
 channels and dependencies are defined in [`manifests/`](manifests).
 

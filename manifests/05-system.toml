@@ -31,3 +31,15 @@ needs_root = true
 pin = ""
 channel = "apt"
 size_mb = 3
+
+[[module]]
+id = "updates"
+name = "Security updates"
+summary = "unattended-upgrades: security patches daily, no automatic reboot"
+script = "modules/system/updates.sh"
+default = true
+required = false
+needs_root = true
+pin = ""
+channel = "apt"
+size_mb = 5
