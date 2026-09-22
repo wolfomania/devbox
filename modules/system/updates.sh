@@ -6,7 +6,8 @@
 # the security pockets only, so Docker's, NodeSource's and every other vendor
 # repository stay where they are until upgraded by hand.
 #
-# Nothing reboots. Running processes keep the library they started with, and
+# Nothing reboots: unattended-upgrades leaves Automatic-Reboot unset, which
+# means off. Running processes keep the library they started with, and
 # with no terminal to ask needrestart only lists the services that would need a
 # restart. A package's own upgrade script may still restart its service, as
 # openssh-server does; open SSH sessions survive that. A kernel patch takes
@@ -28,10 +29,9 @@ dvb_install() {
 	pkg_install unattended-upgrades || return 1
 
 	as_root tee "$UPDATES_CONF" > /dev/null <<'CONF' || return 1
-// Managed by devbox: security patches daily, never an automatic reboot.
+// Managed by devbox: security patches daily.
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
-Unattended-Upgrade::Automatic-Reboot "false";
 CONF
 
 	# A container has no systemd to run the timers; the setting is still
