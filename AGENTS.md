@@ -93,5 +93,7 @@ python3 tests/tui/drive.py DOWN DOWN SPACE ENTER
 
 ## Backlog
 
-`docs/matrix-os-gaps.md` lists box-setup features from Matrix OS that devbox
-lacks, with candidate modules in priority order.
+- `docs/direction.md`: chosen product direction and 6-month roadmap.
+- `docs/backlog.md`: candidate modules in priority order.
+- `docs/matrix-os-gaps.md`: box-setup features from Matrix OS that devbox lacks.
+- `docs/private/` is git-ignored. Never commit it or quote it in public files.
