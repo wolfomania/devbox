@@ -37,3 +37,6 @@ profiles/*.conf
 
 # Local notes, not published
 .docs/
+
+# Private strategy, not published
+docs/private/
