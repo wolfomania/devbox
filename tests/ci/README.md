@@ -34,3 +34,4 @@ A runner is not a fresh VPS:
 
 - The runner image comes with many tools installed. A module whose tool is already there is still installed, with a note.
 - The runner has 16 GB of memory, so `swap` finds enough memory and creates no swapfile. `./tests/vps/run.sh --modules swap` covers that path.
+- The runner already has docker, so `docker` never installs it fresh. `./tests/vps/run.sh --modules docker` covers that path.
