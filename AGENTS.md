@@ -81,11 +81,9 @@ Bundle parts are tested the same way and named by file:
 Both module runners read the manifest and the parts directory, so a new module
 or a new part needs no new test. Four modules are handled differently:
 
-- `docker` needs a real machine. A runner already has docker.
-  `./tests/vps/run.sh --modules docker` covers it.
+- `docker` needs a real machine. `./tests/vps/run.sh --modules docker` covers it.
 - `swap` needs a real machine too, for the same reason: `/proc/meminfo` is not
-  namespaced and `swapon` in a container touches the host. A runner has 16 GB
-  of memory, so it creates no swapfile.
+  namespaced and `swapon` in a container touches the host.
   `./tests/vps/run.sh --modules swap` covers it.
 - `firewall` runs in its container with `NET_ADMIN`, so ufw changes the
   container's own network namespace and never the host's.
