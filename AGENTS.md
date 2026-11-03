@@ -46,19 +46,23 @@ git pull --ff-only
 
 ## Tests
 
-Three tiers. Run the first before every commit, the second after touching a
-module or the libraries it uses, the third before a release and for the
-modules a container cannot hold.
+Four tiers. Run the screen tests before every commit, and the container tier
+after touching a module or the libraries it uses. The `vps` workflow runs the
+runner tier on every pull request that touches the provisioner, and on demand
+from the Actions tab. Run the EC2 tier before a release and for `docker` and
+`swap`.
 
 | Tier | Command | Needs | Time |
 |---|---|---|---|
 | Selection screen | `python3 tests/tui/test_selection.py` | python3 | ~15s |
 | Prompt between installs | `python3 tests/shell/test_prompt.py` | python3 | ~1s |
 | One module per container | `./tests/modules/run.sh` | docker | ~10 min |
+| One module per runner | `./tests/ci/run.sh --modules` | the `vps` workflow | ~1-7 min per shard |
+| Whole-install scenarios on a runner | `./tests/ci/run.sh --scenario minimal` | the `vps` workflow | ~1-2.5 min |
 | One module per real box | `./tests/vps/run.sh --modules` | aws cli, an EC2 instance | ~20 min, costs money |
 | Whole-install scenarios | `./tests/vps/run.sh --scenario minimal` | aws cli, an EC2 instance | ~10 min, costs money |
 
-Every module runs on its own, which is what the last three tiers do:
+Every module runs on its own, which is what every tier after the screen tests does:
 
 ```sh
 ./modules/lang/go.sh check      # print the installed version, or exit 1
@@ -77,9 +81,11 @@ Bundle parts are tested the same way and named by file:
 Both module runners read the manifest and the parts directory, so a new module
 or a new part needs no new test. Four modules are handled differently:
 
-- `docker` needs a real machine. `./tests/vps/run.sh --modules docker` covers it.
+- `docker` needs a real machine. A runner already has docker.
+  `./tests/vps/run.sh --modules docker` covers it.
 - `swap` needs a real machine too, for the same reason: `/proc/meminfo` is not
-  namespaced and `swapon` in a container touches the host.
+  namespaced and `swapon` in a container touches the host. A runner has 16 GB
+  of memory, so it creates no swapfile.
   `./tests/vps/run.sh --modules swap` covers it.
 - `firewall` runs in its container with `NET_ADMIN`, so ufw changes the
   container's own network namespace and never the host's.
