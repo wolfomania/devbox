@@ -280,18 +280,18 @@ manifest_query() {
 # sourced, so a module's helpers and variables can never leak into this script
 # or into the next module.
 probe_one() {
-	# stdin here is the pipe probe_all is reading the module list from, and a
-	# check that read a line of it would silently eat the next module.
-	if [ -d "$HOME" ]; then
-		"$DVB_ROOT/$1" check < /dev/null 2>/dev/null
-		return
-	fi
 	# An account not created yet has no home, and nothing to find in one. A
 	# check that runs a tool already on the box would create it anyway (go
 	# writes telemetry, gcloud writes logs), owned by root, and useradd would
 	# then leave out the skel files. Such checks get an empty home of their own.
-	mkdir -p "$DVB_RUN_DIR/probe-home"
-	HOME="$DVB_RUN_DIR/probe-home" "$DVB_ROOT/$1" check < /dev/null 2>/dev/null
+	probe_home="$HOME"
+	if [ ! -d "$probe_home" ]; then
+		probe_home="$DVB_RUN_DIR/probe-home"
+		mkdir -p "$probe_home"
+	fi
+	# stdin here is the pipe probe_all is reading the module list from, and a
+	# check that read a line of it would silently eat the next module.
+	HOME="$probe_home" "$DVB_ROOT/$1" check < /dev/null 2>/dev/null
 }
 
 # Writes "id<TAB>status<TAB>version" for every module in the manifest.
