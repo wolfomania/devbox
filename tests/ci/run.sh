@@ -119,11 +119,7 @@ module_list() {
 		DVB_MANIFEST="$ROOT_DIR/manifests" python3 "$ROOT_DIR/tui/manifest.py" ids
 	else
 		printf '%s\n' "$OPT_MODULES" | tr ',' '\n'
-	fi | sed '/^$/d' | if [ -n "$OPT_SHARD" ]; then
-		awk -v k="$SHARD_K" -v n="$SHARD_N" '(NR - 1) % n == k - 1'
-	else
-		cat
-	fi
+	fi | awk -v k="${SHARD_K:-1}" -v n="${SHARD_N:-1}" '$0 != "" && i++ % n == k - 1'
 }
 
 # Install every module on its own, in order, as root, and report each one:
