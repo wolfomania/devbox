@@ -212,10 +212,14 @@ become_root() {
 	log_dim "  running under sudo to provision the $ACCOUNT_NAME account"
 	# sudo drops the environment, so the settings that steer a run are
 	# handed over by name.
-	exec sudo env DVB_ACCOUNT="$ACCOUNT_NAME" DVB_MANIFEST="$DVB_MANIFEST" \
+	set -- env DVB_ACCOUNT="$ACCOUNT_NAME" DVB_MANIFEST="$DVB_MANIFEST" \
 		DVB_REPO="$DVB_REPO" DVB_REF="$DVB_REF" NO_COLOR="${NO_COLOR:-}" \
 		TMPDIR="${TMPDIR:-}" http_proxy="${http_proxy:-}" https_proxy="${https_proxy:-}" \
 		no_proxy="${no_proxy:-}" sh "$DVB_ROOT/install.sh" "$@"
+	# A GitHub token goes through sudo's environment instead, since on the
+	# command line ps would show it for as long as the install runs.
+	[ -z "${GITHUB_TOKEN:-}" ] || set -- --preserve-env=GITHUB_TOKEN "$@"
+	exec sudo "$@"
 }
 
 # Point HOME at the account from the start, so the probe asks the right home
