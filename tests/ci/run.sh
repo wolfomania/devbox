@@ -23,20 +23,8 @@ OPT_SCENARIO=""
 OPT_MODULES=""
 OPT_SHARD=""
 
-# --- output ----------------------------------------------------------------
-
-if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
-	C_RESET=$(printf '\033[0m'); C_DIM=$(printf '\033[2m'); C_BOLD=$(printf '\033[1m')
-	C_RED=$(printf '\033[31m'); C_GREEN=$(printf '\033[32m'); C_BLUE=$(printf '\033[34m')
-else
-	C_RESET='' C_DIM='' C_BOLD='' C_RED='' C_GREEN='' C_BLUE=''
-fi
-
-say()  { printf '%s==>%s %s%s%s\n' "$C_BLUE" "$C_RESET" "$C_BOLD" "$*" "$C_RESET"; }
-dim()  { printf '%s    %s%s\n' "$C_DIM" "$*" "$C_RESET"; }
-ok()   { printf '%s  ok%s  %s\n' "$C_GREEN" "$C_RESET" "$*"; }
-err()  { printf '%sfail%s  %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
-die()  { err "$*"; exit 1; }
+# shellcheck source=../../lib/log.sh
+. "$ROOT_DIR/lib/log.sh"
 
 usage() {
 	sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
@@ -96,7 +84,7 @@ drop_runner_env() {
 	unset XDG_CONFIG_HOME
 	grep -q '^XDG_CONFIG_HOME=' /etc/environment 2>/dev/null || return 0
 	sed -i '/^XDG_CONFIG_HOME=/d' /etc/environment
-	dim "removed XDG_CONFIG_HOME from /etc/environment"
+	log_dim "    removed XDG_CONFIG_HOME from /etc/environment"
 }
 
 # The tree the tests run from, owned by whoever installs from it, as the EC2
@@ -116,7 +104,7 @@ ship_source() {
 ensure_user() {
 	user="$1"
 	id "$user" >/dev/null 2>&1 && return 0
-	dim "creating $user, with passwordless sudo"
+	log_dim "    creating $user, with passwordless sudo"
 	useradd -m -s /bin/bash -G sudo "$user" || die "cannot create $user"
 	printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$user" > "/etc/sudoers.d/90-devbox-test-$user"
 	chmod 440 "/etc/sudoers.d/90-devbox-test-$user"
@@ -145,8 +133,8 @@ run_modules() {
 	[ -n "$wanted" ] || die "no modules to run"
 	ship_source root
 	mkdir -p "$LOGS_DIR"
-	say "Installing modules one at a time (as root)"
-	dim "$wanted"
+	log_step "Installing modules one at a time (as root)"
+	log_dim "    $wanted"
 
 	failed=""
 	for id in $wanted; do
@@ -164,7 +152,7 @@ run_modules() {
 
 	printf '\n'
 	[ -z "$failed" ] || die "modules failed:$failed"
-	ok "every module installed and reported its own version"
+	log_ok "every module installed and reported its own version"
 }
 
 # --- a scenario ------------------------------------------------------------
@@ -178,17 +166,17 @@ run_scenario() {
 	ensure_user "$SCENARIO_USER"
 	ship_source "$SCENARIO_USER"
 
-	say "Installing (as $SCENARIO_USER, flags $SCENARIO_FLAGS)"
+	log_step "Installing (as $SCENARIO_USER, flags $SCENARIO_FLAGS)"
 	# A login shell starts from an empty environment. Without the token, the
 	# modules' GitHub API calls share the runner address's 60 an hour.
 	runuser -l "$SCENARIO_USER" -w GITHUB_TOKEN -c "cd $SRC && ./install.sh $SCENARIO_FLAGS" ||
 		die "install.sh failed"
 
-	say "Verifying"
+	log_step "Verifying"
 	DVB_EXPECT="$SCENARIO_EXPECT" DVB_USER="${SCENARIO_ACCOUNT:-exclave}" DVB_SRC="$SRC" \
 		DVB_FLAGS="$SCENARIO_FLAGS" sh "$ROOT_DIR/tests/vps/assert.sh" ||
 		die "scenario '$OPT_SCENARIO' failed its checks"
-	ok "scenario '$OPT_SCENARIO' passed"
+	log_ok "scenario '$OPT_SCENARIO' passed"
 }
 
 # --- main ------------------------------------------------------------------
