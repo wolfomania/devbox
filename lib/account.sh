@@ -46,8 +46,11 @@ account_ensure() {
 		}
 		log_dim "  account $ACCOUNT_NAME exists; checking it"
 	else
+		home_existed=0
+		[ ! -d "$(account_home)" ] || home_existed=1
 		useradd --create-home --user-group --shell /bin/bash "$ACCOUNT_NAME" || return 1
 		log_dim "  created account $ACCOUNT_NAME"
+		[ "$home_existed" -eq 0 ] || account_take_home || return 1
 	fi
 
 	account_fix_shell &&
@@ -64,6 +67,20 @@ account_fix_shell() {
 			log_dim "  gave $ACCOUNT_NAME a login shell"
 			;;
 	esac
+}
+
+# useradd copies /etc/skel only into a home it creates. One that was already
+# there, left by a deleted account or written into by some tool, gets no
+# .profile or .bashrc, and then no shell ever sources env.sh. A new account
+# gets the skel files its home lacks, keeps every file it has, and owns it all.
+account_take_home() {
+	home="$(account_home)"
+	for file in /etc/skel/.[!.]* /etc/skel/*; do
+		[ -e "$file" ] || continue
+		[ -e "$home/${file##*/}" ] || cp -R "$file" "$home/" || return 1
+	done
+	chown -R "$ACCOUNT_NAME:" "$home" && chmod 750 "$home" || return 1
+	log_dim "  $home was already there; added the skel files it lacked"
 }
 
 account_fix_home() {
