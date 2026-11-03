@@ -40,6 +40,9 @@ git pull --ff-only
 - Commit as soon as one change works, then build the next change on top of it.
 - One commit does one thing. Split anything larger.
 - Never save up a batch of finished work for a single commit at the end.
+- Author every commit as the person you are working for, with their name and email.
+- If `git config user.name` or `user.email` names an agent, set them to that person's before committing. Their GitHub noreply address is `<id>+<login>@users.noreply.github.com`.
+- Never add `Co-Authored-By` trailers, agent or session links, or "Generated with" lines to commits or pull requests.
 
 ## Tests
 
