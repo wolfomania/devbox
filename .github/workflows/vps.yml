@@ -1,0 +1,61 @@
+# The VPS tier on GitHub's runners: every module on its own, and the
+# whole-install scenarios, each job on a fresh runner VM. It covers what
+# tests/vps/run.sh covers on EC2, with no cloud account.
+name: vps
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - install.sh
+      - lib/**
+      - modules/**
+      - manifests/**
+      - tui/manifest.py
+      - tests/module-case.sh
+      - tests/ci/**
+      - tests/vps/assert.sh
+      - tests/vps/scenarios/**
+      - .github/workflows/vps.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "modules 1/4", args: "--modules --shard 1/4" }
+          - { name: "modules 2/4", args: "--modules --shard 2/4" }
+          - { name: "modules 3/4", args: "--modules --shard 3/4" }
+          - { name: "modules 4/4", args: "--modules --shard 4/4" }
+          - { name: "scenario default", args: "--scenario default" }
+          - { name: "scenario minimal", args: "--scenario minimal" }
+          - { name: "scenario full", args: "--scenario full" }
+          - { name: "scenario root", args: "--scenario root" }
+    env:
+      DVB_TEST_DISPOSABLE: 1
+      # Spares the modules' GitHub API calls the shared unauthenticated limit.
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run
+        run: ./tests/ci/run.sh ${{ matrix.args }}
+
+      - name: Keep the logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-${{ strategy.job-index }}
+          path: /tmp/devbox-logs
+          if-no-files-found: ignore
