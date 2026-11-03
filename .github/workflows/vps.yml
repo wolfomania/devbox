@@ -39,7 +39,6 @@ jobs:
           - { name: "modules 3/4", args: "--modules --shard 3/4" }
           - { name: "modules 4/4", args: "--modules --shard 4/4" }
           - { name: "scenario default", args: "--scenario default" }
-          - { name: "scenario minimal", args: "--scenario minimal" }
           - { name: "scenario full", args: "--scenario full" }
           - { name: "scenario root", args: "--scenario root" }
     env:

@@ -23,8 +23,8 @@ export DVB_TEST_DISPOSABLE=1
 
 ## The workflow
 
-- 4 jobs split every module with `--shard`.
-- 4 jobs run the `default`, `minimal`, `full` and `root` scenarios.
+- The modules are split across jobs with `--shard`.
+- Each scenario runs in a job of its own, except `minimal`: `full` installs and checks everything it does.
 - Runs on pull requests that touch the provisioner or these tests, and on demand from the Actions tab.
 - Failed jobs upload the module logs as an artifact.
 
