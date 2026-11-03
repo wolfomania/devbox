@@ -88,6 +88,16 @@ preflight() {
 	fi
 }
 
+# A runner's /etc/environment points XDG_CONFIG_HOME at the runner user's
+# home, and sudo hands it to every user it runs as, so devbox would write the
+# account's config into the runner's home. A fresh VPS sets no such thing.
+drop_runner_env() {
+	unset XDG_CONFIG_HOME
+	grep -q '^XDG_CONFIG_HOME=' /etc/environment 2>/dev/null || return 0
+	sed -i '/^XDG_CONFIG_HOME=/d' /etc/environment
+	dim "removed XDG_CONFIG_HOME from /etc/environment"
+}
+
 # The tree the tests run from, owned by whoever installs from it, as the EC2
 # harness ships it.
 ship_source() {
@@ -183,6 +193,7 @@ run_scenario() {
 main() {
 	parse_args "$@"
 	preflight "$@"
+	drop_runner_env
 	if [ -n "$OPT_MODULES" ]; then
 		run_modules
 	else
