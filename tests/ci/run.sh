@@ -89,8 +89,9 @@ preflight() {
 }
 
 # A runner's /etc/environment points XDG_CONFIG_HOME at the runner user's
-# home, and sudo hands it to every user it runs as, so devbox would write the
-# account's config into the runner's home. A fresh VPS sets no such thing.
+# home, and every login and sudo reads it. A module run as root would write its
+# config there, and the account's logins would look for theirs there too. A
+# fresh VPS sets no such thing.
 drop_runner_env() {
 	unset XDG_CONFIG_HOME
 	grep -q '^XDG_CONFIG_HOME=' /etc/environment 2>/dev/null || return 0

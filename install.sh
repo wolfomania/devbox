@@ -231,6 +231,11 @@ adopt_account() {
 		DVB_USER="$ACCOUNT_NAME"
 		HOME="$(account_home)"
 		export HOME
+		# XDG directories root arrived with, from sudo -E or /etc/environment,
+		# point into the home of whoever set them. The account gets the
+		# defaults under its own home, which is where a fresh box looks.
+		[ "$ACCOUNT_NAME" = "root" ] ||
+			unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME
 		paths_refresh
 		detect_disk
 	fi
