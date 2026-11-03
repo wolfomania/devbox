@@ -178,7 +178,9 @@ run_scenario() {
 	ship_source "$SCENARIO_USER"
 
 	say "Installing (as $SCENARIO_USER, flags $SCENARIO_FLAGS)"
-	runuser -l "$SCENARIO_USER" -c "cd $SRC && ./install.sh $SCENARIO_FLAGS" ||
+	# A login shell starts from an empty environment. Without the token, the
+	# modules' GitHub API calls share the runner address's 60 an hour.
+	runuser -l "$SCENARIO_USER" -w GITHUB_TOKEN -c "cd $SRC && ./install.sh $SCENARIO_FLAGS" ||
 		die "install.sh failed"
 
 	say "Verifying"
