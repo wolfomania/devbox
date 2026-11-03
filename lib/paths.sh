@@ -77,11 +77,17 @@ load_env() {
 }
 
 # Make every interactive shell source the managed env file.
+#
+# A bash login shell reads the first of ~/.bash_profile, ~/.bash_login and
+# ~/.profile that exists, and only that one. nvm, rvm and some distributions'
+# skel files create ~/.bash_profile, and one that does not source ~/.profile
+# would leave an SSH login without devbox's PATH, so those two are hooked too.
 env_link_profiles() {
 	env_init
 	line=". \"$DVB_ENV_FILE\"  # devbox"
 
-	for profile in "$HOME/.profile" "$HOME/.bashrc" "$HOME/.zshrc"; do
+	for profile in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bash_login" \
+		"$HOME/.bashrc" "$HOME/.zshrc"; do
 		[ -f "$profile" ] || continue
 		grep -qF "$DVB_ENV_FILE" "$profile" 2>/dev/null && continue
 		printf '\n%s\n' "$line" >> "$profile"
