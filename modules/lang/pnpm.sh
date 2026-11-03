@@ -52,9 +52,9 @@ dvb_install() {
 	set -- HOME="$tmp/home" PNPM_HOME="$pnpm_home" SHELL=/bin/sh ENV="$tmp/shinit"
 	[ "$MOD_PIN" = "latest" ] || set -- "$@" PNPM_VERSION="$MOD_PIN"
 	# `pnpm setup` refuses to run as root while SUDO_USER is set, in case
-	# it would fill root's home on the sudo user's behalf. Run as root,
-	# install.sh has re-run itself with sudo, so SUDO_USER is set, and
-	# PNPM_HOME above already names the account's own directory.
+	# it would fill root's home on the sudo user's behalf. Root here has
+	# nearly always come through sudo, which sets it, and PNPM_HOME above
+	# already names the account's own directory.
 	if ! env -u SUDO_USER "$@" sh "$tmp/install.sh" > "$tmp/install.log" 2>&1; then
 		log_err "pnpm installer failed:"
 		cat "$tmp/install.log" >&2
