@@ -13,7 +13,7 @@ on:
       - manifests/**
       - tui/manifest.py
       - tests/module-case.sh
-      - tests/ci/**
+      - tests/ci/run.sh
       - tests/vps/assert.sh
       - tests/vps/scenarios/**
       - .github/workflows/vps.yml
