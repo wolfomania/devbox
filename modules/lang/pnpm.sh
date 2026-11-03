@@ -51,10 +51,13 @@ dvb_install() {
 	# release; set to the empty string it is not the same thing.
 	set -- HOME="$tmp/home" PNPM_HOME="$pnpm_home" SHELL=/bin/sh ENV="$tmp/shinit"
 	[ "$MOD_PIN" = "latest" ] || set -- "$@" PNPM_VERSION="$MOD_PIN"
-	env "$@" sh "$tmp/install.sh" >/dev/null 2>&1
-	status=$?
+	if ! env "$@" sh "$tmp/install.sh" > "$tmp/install.log" 2>&1; then
+		log_err "pnpm installer failed:"
+		cat "$tmp/install.log" >&2
+		rm -rf "$tmp"
+		return 1
+	fi
 	rm -rf "$tmp"
-	[ "$status" -eq 0 ] || return 1
 
 	# Written unexpanded so the line stays valid if the home directory moves.
 	env_add 'export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/devbox/pnpm"'
